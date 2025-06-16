@@ -1,0 +1,11 @@
+[
+  { "date": "2025-01-01", "name": "New Year" },
+  { "date": "2025-01-14", "name": "Pongal" },
+  { "date": "2025-03-31", "name": "Ramzan Id/Eid-ul-Fitar" },
+  { "date": "2025-05-01", "name": "May Day" },
+  { "date": "2025-08-15", "name": "Independence Day" },
+  { "date": "2025-08-27", "name": "Vinayaka Chavithi" },
+  { "date": "2025-10-02", "name": "Gandhi Jayanthi/Dussehra" },
+  { "date": "2025-10-20", "name": "Deepavali" },
+  { "date": "2025-12-25", "name": "Christmas" }
+]

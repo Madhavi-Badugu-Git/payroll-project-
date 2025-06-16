@@ -1,0 +1,91 @@
+{
+  "leaves": [
+    {
+      "id": "L001",
+      "userId": "user_2fpA9gsp30uL0x0Z8fQhJgYk7rE",
+      "leaveType": "Earned Leave",
+      "fromDate": "2025-07-10",
+      "toDate": "2025-07-11",
+      "noOfDays": 2,
+      "reason": "Vacation",
+      "status": "Approved",
+      "approvedBy": "Admin",
+      "appliedDate": "2025-06-10",
+      "lastModifiedDate": "2025-06-11"
+    },
+    {
+      "id": "L002",
+      "userId": "user_2fpA9gsp30uL0x0Z8fQhJgYk7rE",
+      "leaveType": "Sick Leave",
+      "fromDate": "2025-08-05",
+      "toDate": "2025-08-05",
+      "noOfDays": 1,
+      "reason": "Fever",
+      "status": "Pending Approval",
+      "appliedDate": "2025-08-04"
+    },
+    {
+      "id": "L003",
+      "userId": "user_another_id_example", 
+      "leaveType": "Casual Leave",
+      "fromDate": "2025-07-15",
+      "toDate": "2025-07-16",
+      "noOfDays": 2,
+      "reason": "Personal work",
+      "status": "Approved",
+      "approvedBy": "Admin",
+      "appliedDate": "2025-07-01",
+      "lastModifiedDate": "2025-07-02"
+    },
+    {
+      "id": "L004",
+      "userId": "user_2fpA9gsp30uL0x0Z8fQhJgYk7rE",
+      "leaveType": "Casual Leave",
+      "fromDate": "2025-04-01",
+      "toDate": "2025-04-02",
+      "noOfDays": 2,
+      "reason": "Family event",
+      "status": "Approved",
+      "approvedBy": "Admin",
+      "appliedDate": "2025-03-20",
+      "lastModifiedDate": "2025-03-21"
+    },
+    {
+      "id": "L005",
+      "userId": "user_2fpA9gsp30uL0x0Z8fQhJgYk7rE",
+      "leaveType": "Earned Leave",
+      "fromDate": "2025-05-10",
+      "toDate": "2025-05-12",
+      "noOfDays": 3,
+      "reason": "Short trip",
+      "status": "Approved",
+      "approvedBy": "Admin",
+      "appliedDate": "2025-04-15",
+      "lastModifiedDate": "2025-04-16"
+    },
+    {
+      "id": "L006",
+      "userId": "user_2fpA9gsp30uL0x0Z8fQhJgYk7rE",
+      "leaveType": "Sick Leave",
+      "fromDate": "2025-06-05",
+      "toDate": "2025-06-05",
+      "noOfDays": 1,
+      "reason": "Doctor appointment",
+      "status": "Approved",
+      "approvedBy": "System",
+      "appliedDate": "2025-06-04",
+      "lastModifiedDate": "2025-06-04"
+    },
+    {
+      "id": "L007",
+      "userId": "user_2fpA9gsp30uL0x0Z8fQhJgYk7rE",
+      "leaveType": "Unpaid Leave",
+      "fromDate": "2025-09-01",
+      "toDate": "2025-09-03",
+      "noOfDays": 3,
+      "reason": "Extended vacation",
+      "status": "Pending Approval",
+      "appliedDate": "2025-06-15"
+    }
+  ]
+}

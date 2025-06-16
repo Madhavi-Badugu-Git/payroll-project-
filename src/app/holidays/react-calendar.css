@@ -1,0 +1,230 @@
+/* react-calendar.css */
+.react-calendar {
+  width: 100%;
+  max-width: 450px; /* Adjust as needed, or make it more flexible */
+  background-color: var(--calendar-bg, white); /* CSS variable for background */
+  border: 1px solid var(--calendar-border-color, #e5e7eb); /* Tailwind gray-200 */
+  font-family: inherit; /* Inherit from page */
+  line-height: 1.25em; /* Adjusted line height */
+  border-radius: 0.5rem; /* Tailwind rounded-lg */
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); /* Tailwind shadow-md */
+}
+
+/* Dark mode variables (can be set via a parent class like .dark) */
+.dark .react-calendar {
+  --calendar-bg: #1f2937; /* Tailwind gray-800 */
+  --calendar-border-color: #4b5563; /* Tailwind gray-600 */
+  --calendar-text-color: #d1d5db; /* Tailwind gray-300 */
+  --calendar-tile-hover-bg: #374151; /* Tailwind gray-700 */
+  --calendar-nav-button-hover-bg: #374151; /* Tailwind gray-700 */
+  --calendar-tile-disabled-bg: #374151; /* Tailwind gray-700 */
+  --calendar-tile-disabled-text: #6b7280; /* Tailwind gray-500 */
+  --calendar-weekend-text: #fca5a5; /* Tailwind red-300 */
+  --calendar-neighboring-month-text: #6b7280; /* Tailwind gray-500 */
+  --calendar-today-bg: #1e40af; /* Tailwind blue-800 */
+  --calendar-today-text: #bfdbfe; /* Tailwind blue-200 */
+  --calendar-active-bg: #2563eb; /* Tailwind blue-600 */
+  --calendar-active-text: white;
+  --holiday-tile-bg: #7f1d1d; /* Tailwind red-800 */
+  --holiday-tile-text: #fecaca; /* Tailwind red-200 */
+  --holiday-tile-hover-bg: #991b1b; /* Tailwind red-700 */
+}
+
+.react-calendar {
+  color: var(--calendar-text-color, #374151); /* Tailwind gray-700 */
+}
+
+.react-calendar--doubleView {
+  width: 700px;
+}
+
+.react-calendar--doubleView .react-calendar__viewContainer {
+  display: flex;
+  margin: -0.5em;
+}
+
+.react-calendar--doubleView .react-calendar__viewContainer > * {
+  width: 50%;
+  margin: 0.5em;
+}
+
+.react-calendar,
+.react-calendar *,
+.react-calendar *:before,
+.react-calendar *:after {
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+.react-calendar button {
+  margin: 0;
+  border: 0;
+  outline: none;
+  border-radius: 0.375rem; /* Tailwind rounded-md */
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+.react-calendar button:enabled:hover {
+  cursor: pointer;
+}
+
+.react-calendar__navigation {
+  display: flex;
+  height: 44px;
+  margin-bottom: 0.75em; /* Adjusted margin */
+  padding: 0 0.5rem; /* Added padding */
+}
+
+.react-calendar__navigation button {
+  min-width: 44px;
+  background: none;
+  font-weight: 600; /* Tailwind font-semibold */
+  color: var(--calendar-text-color, #374151);
+}
+
+.react-calendar__navigation button:disabled {
+  background-color: var(--calendar-tile-disabled-bg, #f3f4f6); /* Tailwind gray-100 */
+  color: var(--calendar-tile-disabled-text, #9ca3af); /* Tailwind gray-400 */
+  cursor: not-allowed;
+}
+
+.react-calendar__navigation button:enabled:hover,
+.react-calendar__navigation button:enabled:focus {
+  background-color: var(--calendar-nav-button-hover-bg, #f3f4f6); /* Tailwind gray-100 */
+}
+
+.react-calendar__month-view__weekdays {
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: 600; /* Tailwind font-semibold */
+  font-size: 0.75em; /* Tailwind text-xs */
+  color: var(--calendar-text-color, #6b7280); /* Tailwind gray-500 */
+  margin-bottom: 0.5rem;
+}
+
+.dark .react-calendar__month-view__weekdays {
+  color: var(--calendar-text-color, #9ca3af); /* Tailwind gray-400 for dark mode */
+}
+
+.react-calendar__month-view__weekdays__weekday {
+  padding: 0.5em;
+}
+
+.react-calendar__month-view__weekNumbers .react-calendar__tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75em;
+  font-weight: bold;
+  color: var(--calendar-text-color, #6b7280); /* Tailwind gray-500 */
+}
+
+.react-calendar__month-view__days__day--weekend {
+  color: var(--calendar-weekend-text, #ef4444); /* Tailwind red-500 */
+}
+
+.react-calendar__month-view__days__day--neighboringMonth {
+  color: var(--calendar-neighboring-month-text, #9ca3af); /* Tailwind gray-400 */
+}
+
+.react-calendar__year-view .react-calendar__tile,
+.react-calendar__decade-view .react-calendar__tile,
+.react-calendar__century-view .react-calendar__tile {
+  padding: 1.5em 0.5em; /* Adjusted padding */
+}
+
+.react-calendar__tile {
+  max-width: 100%;
+  padding: 0.75em 0.5em; /* Adjusted padding */
+  background: none;
+  text-align: center;
+  line-height: 1.25em; /* Adjusted line height */
+  border-radius: 0.375rem; /* Tailwind rounded-md */
+  color: var(--calendar-text-color, #374151); /* Tailwind gray-700 */
+}
+
+.react-calendar__tile:disabled {
+  background-color: var(--calendar-tile-disabled-bg, #f3f4f6); /* Tailwind gray-100 */
+  color: var(--calendar-tile-disabled-text, #9ca3af); /* Tailwind gray-400 */
+  cursor: not-allowed;
+}
+
+.react-calendar__tile:enabled:hover,
+.react-calendar__tile:enabled:focus {
+  background-color: var(--calendar-tile-hover-bg, #e5e7eb); /* Tailwind gray-200 */
+}
+
+.react-calendar__tile--now { /* Today */
+  background: var(--calendar-today-bg, #eff6ff); /* Tailwind blue-100 */
+  color: var(--calendar-today-text, #1d4ed8); /* Tailwind blue-700 */
+  font-weight: 600;
+}
+
+.react-calendar__tile--now:enabled:hover,
+.react-calendar__tile--now:enabled:focus {
+  background: var(--calendar-today-bg, #dbeafe); /* Tailwind blue-200 */
+  color: var(--calendar-today-text, #1e3a8a); /* Tailwind blue-800 */
+}
+
+/* .react-calendar__tile--hasActive is not actively styled for single select */
+
+/* .react-calendar__tile--hasActive:enabled:hover, 
+   .react-calendar__tile--hasActive:enabled:focus is not actively styled for single select */
+
+.react-calendar__tile--active { /* Selected day */
+  background: var(--calendar-active-bg, #3b82f6); /* Tailwind blue-500 */
+  color: var(--calendar-active-text, white);
+  font-weight: 600;
+}
+
+.react-calendar__tile--active:enabled:hover,
+.react-calendar__tile--active:enabled:focus {
+  background: var(--calendar-active-bg, #2563eb); /* Tailwind blue-600 */
+}
+
+.react-calendar--selectRange .react-calendar__tile--hover {
+  background-color: var(--calendar-tile-hover-bg, #e5e7eb); /* Tailwind gray-200 */
+}
+
+/* Custom styles for holidays */
+.holiday-tile {
+  background-color: var(--holiday-tile-bg, #fee2e2) !important; /* Tailwind red-100 */
+  color: var(--holiday-tile-text, #b91c1c) !important; /* Tailwind red-700 */
+  font-weight: 600;
+  border-radius: 0.375rem; /* Tailwind rounded-md */
+}
+
+.holiday-tile:enabled:hover,
+.holiday-tile:enabled:focus {
+  background-color: var(--holiday-tile-hover-bg, #fecaca) !important; /* Tailwind red-200 */
+  color: var(--holiday-tile-text, #991b1b) !important; /* Tailwind red-800 */
+}
+
+/* Custom styles for weekend leaves (Sundays and specific Saturdays) */
+.weekend-leave-tile {
+  background-color: var(--weekend-leave-bg, #e0e7ff) !important; /* Light blue, e.g., Tailwind indigo-100 */
+  color: var(--weekend-leave-text, #3730a3) !important; /* Darker blue, e.g., Tailwind indigo-800 */
+  border-radius: 0.375rem;
+}
+
+.dark .weekend-leave-tile {
+  background-color: var(--dark-weekend-leave-bg, #312e81) !important; /* Darker indigo for dark mode */
+  color: var(--dark-weekend-leave-text, #a5b4fc) !important; /* Lighter indigo for dark mode */
+}
+
+
+/* Ensure dark mode styles from variables are applied if .dark class is on a parent */
+.dark .react-calendar__month-view__days__day--weekend {
+  color: var(--calendar-weekend-text, #f87171); /* Tailwind red-400 for dark */
+}
+
+.dark .react-calendar__month-view__days__day--neighboringMonth {
+  color: var(--calendar-neighboring-month-text, #6b7280); /* Tailwind gray-500 for dark */
+}
+
+/* Remove default border from calendar when used within a styled container */
+.react-calendar.border-0 {
+    border: 0;
+    box-shadow: none; /* Also remove shadow if border-0 is applied, assuming container handles it */
+}
