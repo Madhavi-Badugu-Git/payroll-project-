@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AppLayout from '../AppLayout';
 import { useUser } from '@clerk/nextjs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 
 interface AttendanceEntry {
   id: string; 
@@ -46,6 +47,8 @@ export default function AttendancePage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uiWarning, setUiWarning] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
 
   const todayDateOnlyString = new Date().toISOString().split('T')[0]; // YYYY-MM-DD for comparison
 
@@ -102,7 +105,10 @@ export default function AttendancePage() {
 
   const handleAttendanceAction = async (type: 'checkIn' | 'checkOut') => {
     if (!user || !user.id) return;
-    
+    setUiWarning(null); // Remove UI warning logic
+    setToast(null);
+    setIsLoading(true);
+    setError(null);
     const now = new Date();
     const payload = {
       employeeId: user.id, 
@@ -110,28 +116,24 @@ export default function AttendancePage() {
       type: type,
       time: now.toISOString(),
     };
-
-    setIsLoading(true); 
-    setError(null);
     try {
       const response = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      // Always refresh attendance log, even if API returns an error (e.g., duplicate check-in)
+      await fetchAttendanceLog();
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to ${type}: ${response.statusText}`);
+        setToast({ message: errorData.error || `Failed to ${type}.`, type: 'error' });
+        setIsLoading(false);
+        return;
       }
-      await fetchAttendanceLog(); 
+      setToast({ message: `${type === 'checkIn' ? 'Check-in' : 'Check-out'} successful!`, type: 'success' });
     } catch (err) {
-      console.error(`${type} error:`, err);
-      if (err instanceof Error) {
-        setError(err.message || `Could not perform ${type}.`);
-      } else {
-        setError(`An unknown error occurred while performing ${type}.`);
-      }
-      setIsLoading(false); 
+      setToast({ message: `An error occurred while performing ${type}.`, type: 'error' });
+      setIsLoading(false);
     }
   };
 
@@ -164,6 +166,13 @@ export default function AttendancePage() {
     }))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   if (isLoading && attendanceLog.length === 0) { // Show loading only on initial load
     return <AppLayout><div className="text-center p-10">Loading attendance records...</div></AppLayout>;
   }
@@ -179,6 +188,19 @@ export default function AttendancePage() {
   return (
     <AppLayout>
       <div className="w-full max-w-4xl mx-auto p-4 md:p-6">
+        {/* Toast Notification (matching employees page style) */}
+        {toast && (
+          <div className={`fixed top-5 right-5 z-50 px-6 py-3 rounded-md shadow-lg text-white font-semibold flex items-center transition-all duration-300 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+            <span>{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="ml-4 text-white hover:text-gray-200"
+            >
+              <XMarkIcon className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white mb-6">My Attendance</h1>
         
         <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-6">

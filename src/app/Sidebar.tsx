@@ -23,6 +23,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         <div className="mt-16 md:mt-0"> {/* Add margin-top to avoid overlap with sticky header on mobile */}
           <nav className="flex flex-col gap-3">
             <Link href="/" className={linkClasses("/")}>Home</Link>
+            <Link href="/employees" className={linkClasses("/employees")}>Employees</Link>
             <Link href="/attendance" className={linkClasses("/attendance")}>Attendance</Link>
             <Link href="/leaves" className={linkClasses("/leaves")}>Leaves</Link>
             <Link href="/payslip" className={linkClasses("/payslip")}>Payslips</Link>

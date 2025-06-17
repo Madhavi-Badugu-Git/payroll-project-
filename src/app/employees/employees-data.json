@@ -1,0 +1,102 @@
+[
+  {
+    "id": "emp_001",
+    "empId": "EMP001",
+    "name": "Aarav Sharma",
+    "email": "aarav.sharma@company.com",
+    "phoneNo": "+91-9876543210",
+    "designation": "Software Engineer",
+    "joiningDate": "2023-01-15",
+    "status": "Active"
+  },
+  {
+    "id": "emp_002",
+    "empId": "EMP002",
+    "name": "Diya Patel",
+    "email": "diya.patel@company.com",
+    "phoneNo": "+91-9876543211",
+    "designation": "Senior Developer",
+    "joiningDate": "2022-08-20",
+    "status": "Active"
+  },
+  {
+    "id": "emp_003",
+    "empId": "EMP003",
+    "name": "Rohan Mehta",
+    "email": "rohan.mehta@company.com",
+    "phoneNo": "+91-9876543212",
+    "designation": "Project Manager",
+    "joiningDate": "2021-11-10",
+    "status": "Active"
+  },
+  {
+    "id": "emp_004",
+    "empId": "EMP004",
+    "name": "Priya Singh",
+    "email": "priya.singh@company.com",
+    "phoneNo": "+91-9876543213",
+    "designation": "UI/UX Designer",
+    "joiningDate": "2023-03-05",
+    "status": "Active"
+  },
+  {
+    "id": "emp_005",
+    "empId": "EMP005",
+    "name": "Vikram Reddy",
+    "email": "vikram.reddy@company.com",
+    "phoneNo": "+91-9876543214",
+    "designation": "DevOps Engineer",
+    "joiningDate": "2022-12-01",
+    "status": "Active"
+  },
+  {
+    "id": "emp_006",
+    "empId": "EMP006",
+    "name": "Ananya Gupta",
+    "email": "ananya.gupta@company.com",
+    "phoneNo": "+91-9876543215",
+    "designation": "Business Analyst",
+    "joiningDate": "2023-06-15",
+    "status": "On Leave"
+  },
+  {
+    "id": "emp_007",
+    "empId": "EMP007",
+    "name": "Arjun Kumar",
+    "email": "arjun.kumar@company.com",
+    "phoneNo": "+91-9876543216",
+    "designation": "Quality Assurance",
+    "joiningDate": "2022-04-18",
+    "status": "Active"
+  },
+  {
+    "id": "emp_008",
+    "empId": "EMP008",
+    "name": "Kavya Nair",
+    "email": "kavya.nair@company.com",
+    "phoneNo": "+91-9876543217",
+    "designation": "HR Manager",
+    "joiningDate": "2021-09-12",
+    "status": "Active"
+  },
+  {
+    "id": "emp_009",
+    "empId": "EMP009",
+    "name": "Siddharth Joshi",
+    "email": "siddharth.joshi@company.com",
+    "phoneNo": "+91-9876543218",
+    "designation": "Data Scientist",
+    "joiningDate": "2023-02-28",
+    "status": "Inactive"
+  },
+  {
+    "id": "emp_010",
+    "empId": "EMP010",
+    "name": "Riya Agarwal",
+    "email": "riya.agarwal@company.com",
+    "phoneNo": "+91-9876543219",
+    "designation": "Marketing Specialist",
+    "joiningDate": "2022-10-05",
+    "status": "Active"
+  }
+]

@@ -64,11 +64,20 @@ export async function POST(req: NextRequest) {
     let currentStatus = existingRecord?.status || 'Absent';
 
     if (type === 'checkIn') {
+      // Only save the first check-in for the day
+      if (existingRecord?.checkIn) {
+        // Do not update check-in time, just return the existing record
+        return NextResponse.json(existingRecord);
+      }
       dataToUpdate.checkIn = actionTime;
       if (currentStatus === 'Absent' || (existingRecord?.checkIn && existingRecord?.checkOut)) {
         currentStatus = 'Present';
       }
     } else if (type === 'checkOut') {
+      // Prevent check-out before check-in
+      if (!existingRecord?.checkIn) {
+        return NextResponse.json({ error: 'Cannot check out before checking in.' }, { status: 400 });
+      }
       dataToUpdate.checkOut = actionTime;
     }
 

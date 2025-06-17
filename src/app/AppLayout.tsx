@@ -25,10 +25,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
         onToggleSidebar={isSignedIn ? toggleSidebar : () => {}}
         isSidebarOpen={isSidebarOpen}
       />
-      <div className="flex flex-1 w-full pt-16">
+      <div className="flex flex-1 w-full">
         {isSignedIn && <Sidebar isOpen={isSidebarOpen} />}
         <main
-          className={`flex-1 flex flex-col items-center p-4 sm:p-6 md:p-8 w-full transition-all duration-300 ease-in-out ${
+          className={`flex-1 flex flex-col items-center px-4 sm:px-6 md:px-8 w-full transition-all duration-300 ease-in-out ${
             isSignedIn && isSidebarOpen ? 'ml-0 md:ml-64' : 'ml-0'
           }`}
         >
