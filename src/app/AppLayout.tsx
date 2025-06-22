@@ -29,7 +29,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         {isSignedIn && <Sidebar isOpen={isSidebarOpen} />}
         <main
           className={`flex-1 flex flex-col items-center px-4 sm:px-6 md:px-8 w-full transition-all duration-300 ease-in-out ${
-            isSignedIn && isSidebarOpen ? 'ml-0 md:ml-64' : 'ml-0'
+            isSignedIn && isSidebarOpen ? 'ml-0 md:ml-42' : 'ml-0'
           }`}
         >
           {children}

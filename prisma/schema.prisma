@@ -26,6 +26,8 @@ model Attendance {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  regularizations AttendanceRegularization[]
 }
 
 model Holiday {
@@ -47,4 +49,18 @@ model Employee {
   status      String   // "Active", "Inactive", "On Leave"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model AttendanceRegularization {
+  id               String    @id @default(cuid())
+  attendanceId     String
+  attendance       Attendance @relation(fields: [attendanceId], references: [id])
+  employeeId       String
+  date             DateTime  @db.Date
+  reason           String
+  status           String    // "Pending", "Approved", "Rejected"
+  requestedCheckIn DateTime?
+  requestedCheckOut DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }

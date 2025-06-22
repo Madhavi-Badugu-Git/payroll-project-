@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react'; // Added useEffect, FormEvent
+import { useState, useEffect, FormEvent, useCallback, useMemo } from 'react'; // Added useCallback
 import Calendar from 'react-calendar';
 import './react-calendar.css';
 // import holidaysData from './holidays.json'; // Removed mock data import
 import AppLayout from '../AppLayout';
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'; // Added icons
+import { useUser } from '@clerk/nextjs';
+import { getUserRoles } from '@/lib/clerk';
+import { hasAdminRole } from '@/lib/userutils';
 
 interface Holiday {
   id: string; // Added id
@@ -37,11 +40,13 @@ const formatDateAndGetDay = (dateString: string): { formattedDate: string; dayNa
 };
 
 export default function HolidaysPage() {
+  const { user } = useUser();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [holidayDatesSet, setHolidayDatesSet] = useState(new Set<string>());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDateInfo, setSelectedDateInfo] = useState<string | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -50,8 +55,37 @@ export default function HolidaysPage() {
   const [holidayDate, setHolidayDate] = useState(toYYYYMMDD(new Date()));
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [holidayToDelete, setHolidayToDelete] = useState<Holiday | null>(null);
+  const isAdmin = useMemo(() => hasAdminRole(user), [user]);
 
-  const fetchHolidays = async () => {
+
+  const getDayInfo = (date: Date, holidayList: Holiday[]): string => {
+    const dateString = toYYYYMMDD(date);
+    const holiday = holidayList.find(h => h.date === dateString);
+
+    if (holiday) {
+      return `Holiday: ${holiday.name}`;
+    }
+
+    const dayOfWeek = date.getDay();
+    if (dayOfWeek === 0) {
+      return "Sunday - Weekend Holiday";
+    }
+
+    if (dayOfWeek === 6) {
+      const dayOfMonth = date.getDate();
+      const isFirstSaturday = dayOfMonth >= 1 && dayOfMonth <= 7;
+      const isThirdSaturday = dayOfMonth >= 15 && dayOfMonth <= 21;
+      if (isFirstSaturday || isThirdSaturday) {
+        return "Working Saturday";
+      } else {
+        return "Saturday - Weekend Holiday";
+      }
+    }
+
+    return "Regular Working Day";
+  };
+
+  const fetchHolidays = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -60,19 +94,31 @@ export default function HolidaysPage() {
         throw new Error(`Failed to fetch holidays: ${response.statusText}`);
       }
       const data: Holiday[] = await response.json();
-      setHolidays(data.map(h => ({...h, date: toYYYYMMDD(h.date) }))); // Ensure date is YYYY-MM-DD
-      setHolidayDatesSet(new Set(data.map(h => toYYYYMMDD(h.date))));
-    } catch (err: any) {
-      setError(err.message);
+      const formattedHolidays = data.map(h => ({...h, date: toYYYYMMDD(h.date) }));
+      setHolidays(formattedHolidays); 
+      setHolidayDatesSet(new Set(formattedHolidays.map(h => h.date)));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchHolidays();
-  }, []);
+  }, [fetchHolidays]);
+
+  useEffect(() => {
+    if (selectedDate) {
+      setSelectedDateInfo(getDayInfo(selectedDate, holidays));
+    }
+  }, [selectedDate, holidays]);
+
+  const handleDateChange = (date: Date) => {
+    setSelectedDate(date);
+  };
 
   const handleAddHoliday = () => {
     setIsEditing(false);
@@ -107,10 +153,11 @@ export default function HolidaysPage() {
       setShowConfirmDialog(false);
       setHolidayToDelete(null);
       fetchHolidays(); // Refresh list
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
       console.error(err);
-      alert(`Error: ${err.message}`);
+      alert(`Error: ${message}`);
     }
   };
 
@@ -141,10 +188,11 @@ export default function HolidaysPage() {
       }
       setShowModal(false);
       fetchHolidays(); // Refresh list
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
       console.error(err);
-      alert(`Error: ${err.message}`);
+      alert(`Error: ${message}`);
     }
   };
 
@@ -155,9 +203,21 @@ export default function HolidaysPage() {
         return 'holiday-tile';
       }
       const dayOfWeek = date.getDay();
-      // Simplified weekend logic for example, adjust as needed
-      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+      const dayOfMonth = date.getDate();
+
+      // Sundays are always holidays
+      if (dayOfWeek === 0) {
         return 'weekend-leave-tile';
+      }
+
+      // Saturdays: 1st and 3rd are working, others are holidays
+      if (dayOfWeek === 6) {
+        const isFirstSaturday = dayOfMonth >= 1 && dayOfMonth <= 7;
+        const isThirdSaturday = dayOfMonth >= 15 && dayOfMonth <= 21;
+        if (isFirstSaturday || isThirdSaturday) {
+          return 'working-saturday-tile'; // Special class for working Saturdays
+        }
+        return 'weekend-leave-tile'; // Other Saturdays are holidays
       }
     }
     return null;
@@ -171,11 +231,14 @@ export default function HolidaysPage() {
       <div className="w-full max-w-7xl mx-auto p-4 md:p-6">
         <div className="flex justify-between items-center mb-8">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">Indian Holidays 2025</h1> {/* Removed text-center from here */}
-            <button 
-                onClick={handleAddHoliday}
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center">
-                <PlusIcon className="h-5 w-5 mr-2" /> Add Holiday
-            </button>
+            {isAdmin && (
+              <button 
+                  onClick={handleAddHoliday}
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center"
+                >
+                  <PlusIcon className="h-5 w-5 mr-2" /> Add Holiday
+              </button>
+            )}
         </div>
         {/* Modal for Add/Edit Holiday */} 
         {showModal && (
@@ -256,7 +319,7 @@ export default function HolidaysPage() {
             <h2 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">Calendar View</h2>
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
               <Calendar
-                onChange={(value) => setSelectedDate(value as Date)}
+                onChange={(value) => handleDateChange(value as Date)}
                 value={selectedDate}
                 tileClassName={tileClassName}
                 className="border-0"
@@ -264,6 +327,14 @@ export default function HolidaysPage() {
             </div>
           </div>
           <div className="w-full md:flex-1">
+            {selectedDateInfo && (
+              <div className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                <h3 className="font-semibold text-gray-800 dark:text-white">
+                  Info for {selectedDate ? formatDateAndGetDay(toYYYYMMDD(selectedDate)).formattedDate : ''}
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300">{selectedDateInfo}</p>
+              </div>
+            )}
             <h2 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">Holiday List</h2>
             {error && holidays.length > 0 && <p className="text-red-500 mb-2">{error}</p>} {/* Corrected className quotes */}
             <div className="max-h-[400px] md:max-h-[calc(100vh-250px)] overflow-y-auto bg-white dark:bg-gray-800 shadow-md rounded-lg border border-gray-200 dark:border-gray-700">
@@ -273,13 +344,13 @@ export default function HolidaysPage() {
                     <th scope="col" className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
                     <th scope="col" className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Day</th>
                     <th scope="col" className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Holiday</th>
-                    <th scope="col" className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                    {isAdmin && <th scope="col" className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {holidays.length === 0 && !isLoading && (
                     <tr>
-                      <td colSpan={4} className="text-center py-4 text-gray-500 dark:text-gray-400">No holidays found.</td>
+                      <td colSpan={isAdmin ? 4 : 3} className="text-center py-4 text-gray-500 dark:text-gray-400">No holidays found.</td>
                     </tr>
                   )}
                   {holidays.map((holiday) => {
@@ -289,14 +360,16 @@ export default function HolidaysPage() {
                         <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">{formattedDate}</td>
                         <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">{dayName}</td>
                         <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">{holiday.name}</td>
-                        <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">
-                          <button onClick={() => handleEditHoliday(holiday)} className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-2 p-1">
-                            <PencilIcon className="h-5 w-5"/>
-                          </button>
-                          <button onClick={() => handleDeleteHoliday(holiday.id)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1">
-                            <TrashIcon className="h-5 w-5"/>
-                          </button>
-                        </td>
+                        {isAdmin && (
+                          <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">
+                            <button onClick={() => handleEditHoliday(holiday)} className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-2 p-1">
+                              <PencilIcon className="h-5 w-5"/>
+                            </button>
+                            <button onClick={() => handleDeleteHoliday(holiday.id)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1">
+                              <TrashIcon className="h-5 w-5"/>
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}

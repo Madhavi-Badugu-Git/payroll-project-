@@ -201,6 +201,29 @@
   color: var(--holiday-tile-text, #991b1b) !important; /* Tailwind red-800 */
 }
 
+.dark .holiday-tile:hover {
+  background-color: var(--holiday-tile-hover-bg, #991b1b); /* Tailwind red-700 */
+}
+
+/* New class for working Saturdays */
+.working-saturday-tile {
+  background-color: #dcfce7; /* Tailwind green-100 */
+  color: #14532d; /* Tailwind green-900 */
+}
+
+.working-saturday-tile:hover {
+  background-color: #bbf7d0; /* Tailwind green-200 */
+}
+
+.dark .working-saturday-tile {
+  background-color: #14532d; /* Tailwind green-900 */
+  color: #dcfce7; /* Tailwind green-100 */
+}
+
+.dark .working-saturday-tile:hover {
+  background-color: #166534; /* Tailwind green-800 */
+}
+
 /* Custom styles for weekend leaves (Sundays and specific Saturdays) */
 .weekend-leave-tile {
   background-color: var(--weekend-leave-bg, #e0e7ff) !important; /* Light blue, e.g., Tailwind indigo-100 */

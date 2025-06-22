@@ -1,6 +1,8 @@
 import Link from 'next/link';
-import { SignedIn } from '@clerk/nextjs';
+import { SignedIn, useUser } from '@clerk/nextjs';
 import { usePathname } from 'next/navigation'; // Import usePathname
+import { useMemo } from 'react';
+import { hasAdminRole } from '@/lib/userutils';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -8,6 +10,8 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen }: SidebarProps) {
   const pathname = usePathname(); // Get current pathname
+  const { user } = useUser();
+  const isAdmin = useMemo(() => hasAdminRole(user), [user]);
 
   const linkClasses = (path: string) => {
     const isActive = pathname === path;
@@ -17,17 +21,18 @@ export default function Sidebar({ isOpen }: SidebarProps) {
   return (
     <SignedIn>
       <aside
-        className={`w-64 min-h-screen bg-gray-100 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 p-6 flex flex-col gap-4 fixed top-0 left-0 z-20 transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`w-40 min-h-screen bg-gray-100 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 p-6 flex flex-col gap-4 fixed top-0 left-0 z-20 transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
-        <div className="mt-16 md:mt-0"> {/* Add margin-top to avoid overlap with sticky header on mobile */}
+        <div className="mt-12"> {/* Add margin-top to avoid overlap with sticky header on mobile */}
           <nav className="flex flex-col gap-3">
-            <Link href="/" className={linkClasses("/")}>Home</Link>
-            <Link href="/employees" className={linkClasses("/employees")}>Employees</Link>
+            <Link href="/dashboard" className={linkClasses("/")}>Dashboard</Link>
+            {isAdmin && <Link href="/employees" className={linkClasses("/employees")}>Employees</Link>}
             <Link href="/attendance" className={linkClasses("/attendance")}>Attendance</Link>
             <Link href="/leaves" className={linkClasses("/leaves")}>Leaves</Link>
             <Link href="/payslip" className={linkClasses("/payslip")}>Payslips</Link>
             <Link href="/holidays" className={linkClasses("/holidays")}>Holidays</Link>
+            {isAdmin && <Link href="/admin/regularization" className={linkClasses("/admin/regularization")}>Regularization</Link>}
           </nav>
         </div>
       </aside>

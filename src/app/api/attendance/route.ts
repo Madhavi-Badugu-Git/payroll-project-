@@ -13,21 +13,91 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const employeeId = searchParams.get('employeeId');
+  const month = searchParams.get('month'); // e.g., '10' for October
+  const year = searchParams.get('year');   // e.g., '2023'
 
-  if (!employeeId) {
-    return NextResponse.json({ error: 'employeeId query parameter is required' }, { status: 400 });
+  if (!employeeId || !month || !year) {
+    return NextResponse.json({ error: 'employeeId, month, and year query parameters are required' }, { status: 400 });
   }
 
   try {
+    const monthInt = parseInt(month, 10);
+    const yearInt = parseInt(year, 10);
+
+    if (isNaN(monthInt) || isNaN(yearInt) || monthInt < 1 || monthInt > 12) {
+      return NextResponse.json({ error: 'Invalid month or year provided' }, { status: 400 });
+    }
+
+    const startDate = new Date(Date.UTC(yearInt, monthInt - 1, 1));
+    const endDate = new Date(Date.UTC(yearInt, monthInt, 1));
+
+    // 1. Fetch existing attendance records for the month
     const attendanceRecords = await prisma.attendance.findMany({
       where: {
         employeeId: employeeId,
-      },
-      orderBy: {
-        date: 'desc',
+        date: {
+          gte: startDate,
+          lt: endDate,
+        },
       },
     });
-    return NextResponse.json(attendanceRecords);
+
+    // 2. Fetch holidays for the month
+    const holidays = await prisma.holiday.findMany({
+      where: {
+        date: {
+          gte: startDate,
+          lt: endDate,
+        },
+      },
+    });
+
+    // 3. Create lookup maps
+    const attendanceMap = new Map(attendanceRecords.map(r => [new Date(r.date).toISOString().split('T')[0], r]));
+    const holidayMap = new Map(holidays.map(h => [new Date(h.date).toISOString().split('T')[0], h.name]));
+
+    // 4. Generate full month calendar
+    const fullMonthAttendance = [];
+    const daysInMonth = new Date(yearInt, monthInt, 0).getUTCDate();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const currentDate = new Date(Date.UTC(yearInt, monthInt - 1, day));
+      const currentDateString = currentDate.toISOString().split('T')[0];
+      const dayOfWeek = currentDate.getUTCDay(); // 0 for Sunday, 6 for Saturday
+
+      if (attendanceMap.has(currentDateString)) {
+        fullMonthAttendance.push(attendanceMap.get(currentDateString)!);
+      } else {
+        let status = 'Absent';
+        const holidayName = holidayMap.get(currentDateString);
+
+        if (holidayName) {
+          status = holidayName;
+        } else if (dayOfWeek === 0) { // Sunday
+          status = 'Weekend';
+        } else if (dayOfWeek === 6) { // Saturday
+          const dayOfMonth = currentDate.getUTCDate();
+          const isFirstSaturday = dayOfMonth >= 1 && dayOfMonth <= 7;
+          const isThirdSaturday = dayOfMonth >= 15 && dayOfMonth <= 21;
+          if (!isFirstSaturday && !isThirdSaturday) {
+            status = 'Weekend';
+          }
+        }
+
+        fullMonthAttendance.push({
+          id: `placeholder-${currentDateString}`,
+          employeeId: employeeId,
+          date: currentDate.toISOString(),
+          checkIn: null,
+          checkOut: null,
+          status: status,
+          totalHours: null,
+          overtimeHours: null,
+        });
+      }
+    }
+    
+    return NextResponse.json(fullMonthAttendance);
   } catch (error) {
     console.error('Error fetching attendance:', error);
     return NextResponse.json({ error: 'Failed to fetch attendance' }, { status: 500 });
@@ -52,6 +122,38 @@ export async function POST(req: NextRequest) {
 
     const attendanceDate = new Date(date);
     const actionTime = new Date(time);
+
+    // Prevent action on non-working days
+    const dayOfWeek = attendanceDate.getUTCDay();
+    const startOfDay = new Date(Date.UTC(attendanceDate.getUTCFullYear(), attendanceDate.getUTCMonth(), attendanceDate.getUTCDate()));
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setUTCDate(startOfDay.getUTCDate() + 1);
+
+    const holiday = await prisma.holiday.findFirst({
+        where: { 
+            date: {
+                gte: startOfDay,
+                lt: endOfDay,
+            }
+        }
+    });
+
+    // if (holiday) {
+    //     return NextResponse.json({ error: `Cannot ${type} on a holiday: ${holiday.name}` }, { status: 400 });
+    // }
+
+    // if (dayOfWeek === 0) { // Sunday
+    //     return NextResponse.json({ error: `Cannot ${type} on a Sunday.` }, { status: 400 });
+    // }
+
+    // if (dayOfWeek === 6) { // Saturday
+    //     const dayOfMonth = attendanceDate.getUTCDate();
+    //     const isFirstSaturday = dayOfMonth >= 1 && dayOfMonth <= 7;
+    //     const isThirdSaturday = dayOfMonth >= 15 && dayOfMonth <= 21;
+    //     if (!isFirstSaturday && !isThirdSaturday) {
+    //         return NextResponse.json({ error: `Cannot ${type} on a non-working Saturday.` }, { status: 400 });
+    //     }
+    // }
 
     const existingRecord = await prisma.attendance.findFirst({
       where: {

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AppLayout from '../AppLayout';
 import { useUser } from '@clerk/nextjs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 interface AttendanceEntry {
   id: string; 
@@ -15,6 +15,8 @@ interface AttendanceEntry {
   status: string; 
   totalHours?: number | null;
   overtimeHours?: number | null;
+  regularizationStatus?: string | null; // e.g., 'Pending', 'Approved', 'Rejected'
+  isRegularizationAllowed?: boolean;
 }
 
 // Helper function to format numeric hours to "Xh Ym" string
@@ -47,12 +49,17 @@ export default function AttendancePage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [uiWarning, setUiWarning] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
+  const [viewedMonth, setViewedMonth] = useState(new Date());
+  const [isRegularizeModalOpen, setIsRegularizeModalOpen] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<AttendanceEntry | null>(null);
+  const [regularizationReason, setRegularizationReason] = useState('');
+  const [requestedCheckIn, setRequestedCheckIn] = useState('');
+  const [requestedCheckOut, setRequestedCheckOut] = useState('');
 
   const todayDateOnlyString = new Date().toISOString().split('T')[0]; // YYYY-MM-DD for comparison
 
-  const fetchAttendanceLog = useCallback(async () => {
+  const fetchAttendanceLog = useCallback(async (date: Date) => {
     if (!user || !user.id) {
       setIsLoading(false);
       return;
@@ -60,13 +67,31 @@ export default function AttendancePage() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/attendance?employeeId=${user.id}`);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1; // getMonth() is 0-indexed
+      const response = await fetch(`/api/attendance?employeeId=${user.id}&year=${year}&month=${month}`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `Failed to fetch attendance: ${response.statusText}`);
       }
       const data: AttendanceEntry[] = await response.json();
-      setAttendanceLog(data);
+
+      // Add client-side logic to determine if regularization is allowed
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const threeDaysAgo = new Date(today);
+      threeDaysAgo.setDate(today.getDate() - 3);
+
+      const processedData = data.map(entry => {
+        const entryDate = new Date(entry.date);
+        const isAllowed = (entry.status === 'Absent' || entry.status === 'Half Day') &&
+                            entryDate >= threeDaysAgo &&
+                            entryDate < today &&
+                            !entry.regularizationStatus;
+        return { ...entry, isRegularizationAllowed: isAllowed };
+      });
+
+      setAttendanceLog(processedData);
     } catch (err) {
       console.error("Fetch error:", err);
       if (err instanceof Error) {
@@ -80,8 +105,10 @@ export default function AttendancePage() {
   }, [user]);
 
   useEffect(() => {
-    fetchAttendanceLog();
-  }, [fetchAttendanceLog]);
+    if (user) {
+      fetchAttendanceLog(viewedMonth);
+    }
+  }, [fetchAttendanceLog, viewedMonth, user]);
 
   useEffect(() => {
     if (user && attendanceLog.length > 0) {
@@ -103,11 +130,61 @@ export default function AttendancePage() {
     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const handleOpenRegularizeModal = (entry: AttendanceEntry) => {
+    setSelectedEntry(entry);
+    setRegularizationReason('');
+    // Pre-fill times if they exist, otherwise empty
+    setRequestedCheckIn(entry.checkIn ? new Date(entry.checkIn).toTimeString().substring(0, 5) : '09:30');
+    setRequestedCheckOut(entry.checkOut ? new Date(entry.checkOut).toTimeString().substring(0, 5) : '18:30');
+    setIsRegularizeModalOpen(true);
+  };
+
+  const handleRegularizationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEntry) return;
+
+    // Combine date with time strings to create full ISO strings
+    const entryDate = selectedEntry.date.split('T')[0];
+    const checkInDateTime = requestedCheckIn ? `${entryDate}T${requestedCheckIn}:00.000Z` : null;
+    const checkOutDateTime = requestedCheckOut ? `${entryDate}T${requestedCheckOut}:00.000Z` : null;
+
+    const payload = {
+      attendanceId: selectedEntry.id,
+      date: selectedEntry.date,
+      reason: regularizationReason,
+      requestedCheckIn: checkInDateTime,
+      requestedCheckOut: checkOutDateTime,
+    };
+
+    try {
+      const response = await fetch('/api/regularization', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit request.');
+      }
+
+      setToast({ message: 'Regularization request submitted successfully!', type: 'success' });
+      setIsRegularizeModalOpen(false);
+      // Refresh data to show updated status
+      fetchAttendanceLog(viewedMonth);
+    } catch (err) {
+        if (err instanceof Error) {
+            setToast({ message: err.message, type: 'error' });
+        } else {
+            setToast({ message: 'An unknown error occurred.', type: 'error' });
+        }
+    }
+  };
+
   const handleAttendanceAction = async (type: 'checkIn' | 'checkOut') => {
     if (!user || !user.id) return;
-    setUiWarning(null); // Remove UI warning logic
     setToast(null);
-    setIsLoading(true);
+    // Let fetchAttendanceLog handle loading state
     setError(null);
     const now = new Date();
     const payload = {
@@ -122,18 +199,18 @@ export default function AttendancePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      // Always refresh attendance log, even if API returns an error (e.g., duplicate check-in)
-      await fetchAttendanceLog();
+      // Always refresh attendance log for the currently viewed month
+      await fetchAttendanceLog(viewedMonth);
+
       if (!response.ok) {
         const errorData = await response.json();
         setToast({ message: errorData.error || `Failed to ${type}.`, type: 'error' });
-        setIsLoading(false);
         return;
       }
       setToast({ message: `${type === 'checkIn' ? 'Check-in' : 'Check-out'} successful!`, type: 'success' });
     } catch (err) {
+      console.error("Error in handleAttendanceAction:", err);
       setToast({ message: `An error occurred while performing ${type}.`, type: 'error' });
-      setIsLoading(false);
     }
   };
 
@@ -141,7 +218,15 @@ export default function AttendancePage() {
   const handleCheckOut = () => handleAttendanceAction('checkOut');
 
   const canCheckIn = !todayRecord || (todayRecord.checkIn && todayRecord.checkOut);
-  const canCheckOut = todayRecord && todayRecord.checkIn && !todayRecord.checkOut;
+  const canCheckOut = todayRecord && todayRecord.checkIn
+
+  const handlePreviousMonth = () => {
+    setViewedMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setViewedMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
 
   const userDisplayLog = [...attendanceLog].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -178,7 +263,7 @@ export default function AttendancePage() {
   }
 
   if (error) {
-    return <AppLayout><div className="text-center p-10 text-red-500">Error: {error} <button onClick={fetchAttendanceLog} className="text-blue-500 underline ml-2">Try again</button></div></AppLayout>;
+    return <AppLayout><div className="text-center p-10 text-red-500">Error: {error} <button onClick={() => fetchAttendanceLog(viewedMonth)} className="text-blue-500 underline ml-2">Try again</button></div></AppLayout>;
   }
   
   if (!user) {
@@ -229,7 +314,20 @@ export default function AttendancePage() {
           </p>
         </div>
 
-        <h2 className="text-xl font-semibold text-gray-700 dark:text-white mb-4">Attendance History</h2>
+        <div className="flex justify-between items-center mt-8 mb-4">
+          <h2 className="text-xl font-semibold text-gray-700 dark:text-white">
+            Attendance History for {viewedMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+          </h2>
+          <div className="flex items-center gap-2">
+            <button onClick={handlePreviousMonth} className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">
+              <ChevronLeftIcon className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+            </button>
+            <button onClick={handleNextMonth} className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">
+              <ChevronRightIcon className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+            </button>
+          </div>
+        </div>
+        
         <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700">
@@ -240,6 +338,7 @@ export default function AttendancePage() {
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total Hours</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Overtime</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -253,6 +352,20 @@ export default function AttendancePage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{formatHoursFromNumber(entry.totalHours)}</td>
                   <td className={`px-6 py-4 whitespace-nowrap text-sm ${getStatusColorClass(entry.status)}`}>{entry.status}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{formatHoursFromNumber(entry.overtimeHours)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {entry.isRegularizationAllowed ? (
+                      <button 
+                        onClick={() => handleOpenRegularizeModal(entry)}
+                        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-600 disabled:text-gray-400 disabled:cursor-not-allowed"
+                      >
+                        Regularize
+                      </button>
+                    ) : entry.regularizationStatus ? (
+                        <span className="text-sm text-gray-500 dark:text-gray-400 italic">{entry.regularizationStatus}</span>
+                    ) : (
+                      <span>-</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {userDisplayLog.length === 0 && !isLoading && (
@@ -266,7 +379,7 @@ export default function AttendancePage() {
 
         {userDisplayLog.length > 0 && (
           <div className="mt-8 bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-700 dark:text-white mb-4">Attendance Chart (Last {chartData.length} Days)</h2>
+            <h2 className="text-xl font-semibold text-gray-700 dark:text-white mb-4">Attendance Chart ({viewedMonth.toLocaleString('default', { month: 'long', year: 'numeric' })})</h2>
             <ResponsiveContainer width="100%" height={400}>
               <BarChart
                 data={chartData}
@@ -283,6 +396,55 @@ export default function AttendancePage() {
                 <Bar dataKey="overtimeHours" fill="#82ca9d" name="Overtime Hours" />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Regularization Modal */}
+        {isRegularizeModalOpen && selectedEntry && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Regularize Attendance</h2>
+              <p className="mb-2 text-sm text-gray-600 dark:text-gray-300">Date: <span className="font-semibold">{new Date(selectedEntry.date).toLocaleDateString()}</span></p>
+              <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">Status: <span className={`font-semibold ${getStatusColorClass(selectedEntry.status)}`}>{selectedEntry.status}</span></p>
+              <form onSubmit={handleRegularizationSubmit}>
+                <div className="mb-4">
+                  <label htmlFor="checkInTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Requested Check-In</label>
+                  <input 
+                    type="time" 
+                    id="checkInTime"
+                    value={requestedCheckIn}
+                    onChange={(e) => setRequestedCheckIn(e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-800 dark:text-gray-200"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label htmlFor="checkOutTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Requested Check-Out</label>
+                  <input 
+                    type="time" 
+                    id="checkOutTime"
+                    value={requestedCheckOut}
+                    onChange={(e) => setRequestedCheckOut(e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-800 dark:text-gray-200"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label htmlFor="reason" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reason</label>
+                  <textarea 
+                    id="reason" 
+                    rows={3} 
+                    value={regularizationReason}
+                    onChange={(e) => setRegularizationReason(e.target.value)}
+                    required
+                    className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-800 dark:text-gray-200"
+                    placeholder="e.g., Forgot to check in, client meeting, etc."
+                  />
+                </div>
+                <div className="flex justify-end gap-4">
+                  <button type="button" onClick={() => setIsRegularizeModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button>
+                  <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">Submit Request</button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 
