@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   --background: #ffffff;
@@ -25,7 +25,8 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 /* Ensure footer sticks to bottom */
-html, body {
+html,
+body {
   height: 100%;
 }
 

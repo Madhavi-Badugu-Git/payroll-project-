@@ -20,12 +20,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   return (
-    <div className="w-full min-h-screen flex flex-col bg-gray-50 dark:bg-gray-950">
+    <div className='w-full min-h-screen flex flex-col bg-gray-50 dark:bg-gray-950'>
       <Header
         onToggleSidebar={isSignedIn ? toggleSidebar : () => {}}
         isSidebarOpen={isSidebarOpen}
       />
-      <div className="flex flex-1 w-full">
+      <div className='flex flex-1 w-full'>
         {isSignedIn && <Sidebar isOpen={isSidebarOpen} />}
         <main
           className={`flex-1 flex flex-col items-center px-4 sm:px-6 md:px-8 w-full transition-all duration-300 ease-in-out ${

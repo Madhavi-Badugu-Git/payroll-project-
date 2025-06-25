@@ -28,6 +28,8 @@ model Attendance {
   updatedAt DateTime @updatedAt
 
   regularizations AttendanceRegularization[]
+
+  @@unique([employeeId, date])
 }
 
 model Holiday {
@@ -49,6 +51,12 @@ model Employee {
   status      String   // "Active", "Inactive", "On Leave"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  user     User?    @relation(fields: [userId], references: [id])
+  userId   String?  @unique
+
+  leaveApplications LeaveApplication[]
+  attendanceRegularizations AttendanceRegularization[]
 }
 
 model AttendanceRegularization {
@@ -56,6 +64,7 @@ model AttendanceRegularization {
   attendanceId     String
   attendance       Attendance @relation(fields: [attendanceId], references: [id])
   employeeId       String
+  employee         Employee @relation(fields: [employeeId], references: [id])
   date             DateTime  @db.Date
   reason           String
   status           String    // "Pending", "Approved", "Rejected"
@@ -63,4 +72,30 @@ model AttendanceRegularization {
   requestedCheckOut DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+}
+
+model LeaveApplication {
+  id           String   @id @default(cuid())
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  startDate    DateTime @db.Date
+  endDate      DateTime @db.Date
+  leaveType    String   // e.g. "Sick", "Casual", "Earned"
+  reason       String
+  status       String   // "PENDING", "APPROVED", "REJECTED", "Cancelled"
+  appliedAt    DateTime @default(now())
+  reviewedAt   DateTime?
+  reviewedBy   String?
+}
+
+model User {
+  id        String    @id @default(cuid())
+  clerkId   String    @unique
+  email     String    @unique
+  firstName String?
+  lastName  String?
+  imageUrl  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  employee  Employee?
 }

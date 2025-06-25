@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@/generated/prisma';
+import { NextRequest, NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
 
@@ -16,11 +16,11 @@ export async function GET(request: NextRequest) {
     const whereClause = search
       ? {
           OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { email: { contains: search, mode: 'insensitive' } },
-            { empId: { contains: search, mode: 'insensitive' } },
-            { designation: { contains: search, mode: 'insensitive' } },
-            { status: { contains: search, mode: 'insensitive' } },
+            { name: { contains: search, mode: 'insensitive' as const } },
+            { email: { contains: search, mode: 'insensitive' as const } },
+            { empId: { contains: search, mode: 'insensitive' as const } },
+            { designation: { contains: search, mode: 'insensitive' as const } },
+            { status: { contains: search, mode: 'insensitive' as const } },
           ],
         }
       : {};
@@ -41,10 +41,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ employees, totalCount });
   } catch (error) {
     console.error('Error fetching employees:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch employees' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch employees' }, { status: 500 });
   }
 }
 
@@ -56,27 +53,18 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!empId || !name || !email || !phoneNo || !designation || !joiningDate || !status) {
-      return NextResponse.json(
-        { error: 'All fields are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
     }
 
     // Check if empId or email already exists
     const existingEmployee = await prisma.employee.findFirst({
       where: {
-        OR: [
-          { empId: empId },
-          { email: email }
-        ]
-      }
+        OR: [{ empId: empId }, { email: email }],
+      },
     });
 
     if (existingEmployee) {
-      return NextResponse.json(
-        { error: 'Employee ID or email already exists' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Employee ID or email already exists' }, { status: 400 });
     }
 
     const employee = await prisma.employee.create({
@@ -87,16 +75,13 @@ export async function POST(request: NextRequest) {
         phoneNo,
         designation,
         joiningDate: new Date(joiningDate),
-        status
-      }
+        status,
+      },
     });
 
     return NextResponse.json(employee, { status: 201 });
   } catch (error) {
     console.error('Error creating employee:', error);
-    return NextResponse.json(
-      { error: 'Failed to create employee' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create employee' }, { status: 500 });
   }
 }

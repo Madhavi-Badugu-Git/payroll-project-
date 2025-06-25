@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuth } from '@clerk/nextjs/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // POST /api/regularization - Submit a new regularization request
 export async function POST(req: NextRequest) {
@@ -26,13 +26,15 @@ export async function POST(req: NextRequest) {
 
     // Check if a regularization request already exists for this attendance record
     const existingRequest = await prisma.attendanceRegularization.findFirst({
-        where: { attendanceId: attendanceId },
+      where: { attendanceId: attendanceId },
     });
 
     if (existingRequest) {
-        return NextResponse.json({ error: 'A regularization request for this date already exists.' }, { status: 409 });
+      return NextResponse.json(
+        { error: 'A regularization request for this date already exists.' },
+        { status: 409 }
+      );
     }
-
 
     const newRegularization = await prisma.attendanceRegularization.create({
       data: {
@@ -72,6 +74,12 @@ export async function GET(req: NextRequest) {
     const regularizations = await prisma.attendanceRegularization.findMany({
       include: {
         attendance: true, // Include related attendance details
+        employee: {
+          select: {
+            name: true,
+            empId: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',

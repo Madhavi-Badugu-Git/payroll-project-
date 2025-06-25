@@ -1,19 +1,21 @@
-
-import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@/generated/prisma';
+import { logDebug, logError, logInfo } from '@/lib/logger';
 import prisma from '@/lib/prisma';
-import { Prisma } from '@/generated/prisma/client';
+import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/holidays - Fetches all holidays
 export async function GET() {
   try {
+    logDebug('Fetching all holidays');
     const holidays = await prisma.holiday.findMany({
       orderBy: {
         date: 'asc',
       },
     });
+    logInfo(`Successfully fetched holidays`, { count: holidays.length });
     return NextResponse.json(holidays);
   } catch (error) {
-    console.error('Error fetching holidays:', error);
+    logError('Error fetching holidays', error);
     return NextResponse.json({ error: 'Failed to fetch holidays' }, { status: 500 });
   }
 }
@@ -25,17 +27,20 @@ export async function POST(req: NextRequest) {
     const { name, date } = body;
 
     if (!name || !date) {
+      logDebug('Missing required fields for holiday creation', { name, date });
       return NextResponse.json({ error: 'Missing required fields (name, date)' }, { status: 400 });
     }
 
     const holidayDate = new Date(date);
+    logDebug('Creating new holiday', { name, date: holidayDate });
 
     // Optional: Check if holiday on this date already exists
     const existingHoliday = await prisma.holiday.findFirst({
-        where: { date: holidayDate }
+      where: { date: holidayDate },
     });
     if (existingHoliday) {
-        return NextResponse.json({ error: 'A holiday on this date already exists'}, { status: 409 });
+      logDebug(`Holiday already exists on date ${date}`, { existingHoliday: existingHoliday.name });
+      return NextResponse.json({ error: 'A holiday on this date already exists' }, { status: 409 });
     }
 
     const newHoliday = await prisma.holiday.create({
@@ -44,12 +49,22 @@ export async function POST(req: NextRequest) {
         date: holidayDate,
       },
     });
+
+    logInfo('Holiday created successfully', {
+      id: newHoliday.id,
+      name: newHoliday.name,
+      date: newHoliday.date,
+    });
+
     return NextResponse.json(newHoliday, { status: 201 });
   } catch (error) {
-    console.error('Error creating holiday:', error);
+    logError('Error creating holiday', error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        // Handle specific Prisma errors, e.g., unique constraints if added to model
-        return NextResponse.json({ error: `Database error: ${error.message}`, code: error.code }, { status: 409 });
+      // Handle specific Prisma errors, e.g., unique constraints if added to model
+      return NextResponse.json(
+        { error: `Database error: ${error.message}`, code: error.code },
+        { status: 409 }
+      );
     }
     return NextResponse.json({ error: 'Failed to create holiday' }, { status: 500 });
   }

@@ -26,7 +26,7 @@
     },
     {
       "id": "L003",
-      "userId": "user_another_id_example", 
+      "userId": "user_another_id_example",
       "leaveType": "Casual Leave",
       "fromDate": "2025-07-15",
       "toDate": "2025-07-16",
