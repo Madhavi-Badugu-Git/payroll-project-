@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
 import AppLayout from '@/app/AppLayout';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useCallback, useEffect, useState } from 'react';
 
 interface LeaveApplication {
   id: string;
@@ -15,7 +15,8 @@ interface LeaveApplication {
   reviewedAt?: string;
   reviewedBy?: string;
   employee?: {
-    name: string;
+    firstName: string;
+    lastName: string;
     empId: string;
   };
 }
@@ -152,7 +153,9 @@ export default function LeaveAdminPage() {
                     <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white'>
                       {leave.employee ? (
                         <div>
-                          <div className='font-medium'>{leave.employee.name}</div>
+                          <div className='font-medium'>
+                            {leave.employee.firstName} {leave.employee.lastName}
+                          </div>
                           <div className='text-gray-500 text-xs'>{leave.employee.empId}</div>
                         </div>
                       ) : (

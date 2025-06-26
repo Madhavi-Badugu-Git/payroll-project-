@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { EmailService } from '@/lib/emailService';
+import { LeaveManagementService } from '@/lib/leaveManagement';
+import { logDebug, logError, logInfo } from '@/lib/logger';
 import prisma from '@/lib/prisma';
 import { getAuth } from '@clerk/nextjs/server';
-import { logError, logInfo, logDebug } from '@/lib/logger';
+import { NextRequest, NextResponse } from 'next/server';
 
 // POST /api/leave - Employee applies for leave
 export async function POST(req: NextRequest) {
@@ -47,6 +49,54 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Calculate the number of leave days requested
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const timeDiff = end.getTime() - start.getTime();
+    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // +1 to include both start and end dates
+
+    logDebug(`Leave days calculation`, {
+      startDate,
+      endDate,
+      daysDiff,
+      empId: user.employee.empId,
+    });
+
+    // Check if employee has sufficient leave balance
+    try {
+      const leaveInfo = await LeaveManagementService.getEmployeeLeaveInfo(user.employee.empId);
+
+      if (!leaveInfo.balance) {
+        logDebug(
+          `No leave balance found for employee ${user.employee.empId}. Proceeding with application.`
+        );
+      } else if (leaveInfo.balance.totalAvailable < daysDiff) {
+        logDebug(`Insufficient leave balance for employee ${user.employee.empId}`, {
+          requested: daysDiff,
+          available: leaveInfo.balance.totalAvailable,
+        });
+        return NextResponse.json(
+          {
+            error: `Insufficient leave balance. You have ${leaveInfo.balance.totalAvailable} days available, but requested ${daysDiff} days.`,
+            balance: {
+              available: leaveInfo.balance.totalAvailable,
+              requested: daysDiff,
+            },
+          },
+          { status: 400 }
+        );
+      }
+
+      logInfo(`Leave balance check passed for employee ${user.employee.empId}`, {
+        requested: daysDiff,
+        available: leaveInfo.balance?.totalAvailable || 0,
+      });
+    } catch (balanceError) {
+      logError(`Error checking leave balance for employee ${user.employee.empId}`, balanceError);
+      // Continue with application creation but log the error
+      // This ensures the system doesn't break if balance checking fails
+    }
+
     const newLeave = await prisma.leaveApplication.create({
       data: {
         employeeId: user.employee.id, // Use the Employee's database ID
@@ -65,6 +115,19 @@ export async function POST(req: NextRequest) {
       leaveType,
       startDate,
       endDate,
+    });
+
+    // Send email notification to admin (async, don't wait for completion)
+    EmailService.sendLeaveApplicationNotification({
+      employeeName: `${user.employee.firstName} ${user.employee.lastName}`,
+      employeeEmail: user.email || '',
+      leaveType,
+      startDate,
+      endDate,
+      days: daysDiff,
+      reason,
+    }).catch(error => {
+      logError('Failed to send leave application email notification', error);
     });
 
     return NextResponse.json(newLeave, { status: 201 });

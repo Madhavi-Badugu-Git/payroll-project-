@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import AppLayout from '../AppLayout';
-import initialPayslipsData from './payslips-data.json';
-import jsPDF from 'jspdf';
+import { getEmployeeIdFromUser } from '@/lib/userutils';
 import { useUser } from '@clerk/nextjs'; // Import useUser
+import jsPDF from 'jspdf';
+import { useEffect, useState } from 'react';
+import AppLayout from '../AppLayout';
+
+// Force dynamic rendering to avoid build issues
+export const dynamic = 'force-dynamic';
 
 interface Payslip {
   id: string;
@@ -30,10 +33,18 @@ interface Payslip {
   // For internal use, not directly on payslip image but good to have
   year: number;
   // Deductions (can be added later if needed based on a more complex model)
-  // providentFund?: number;
-  // professionalTax?: number;
-  // incomeTax?: number;
-  // netSalary: number; // This would be totalSalary - deductions
+  providentFund?: number;
+  professionalTax?: number;
+  incomeTax?: number;
+  netSalary?: number; // This would be totalSalary - deductions
+}
+
+interface PayslipsResponse {
+  payslips: Payslip[];
+  totalCount: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 const formatCurrencyFixed = (amount: number) => {
@@ -207,49 +218,67 @@ const generatePayslipPDF = (payslip: Payslip) => {
 };
 
 export default function PayslipsPage() {
-  const [allPayslips, setAllPayslips] = useState<Payslip[]>([]);
   const [userPayslips, setUserPayslips] = useState<Payslip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useUser(); // Get the logged-in user
 
-  useEffect(() => {
-    // Simulate fetching data
-    const payslipsData = initialPayslipsData as Payslip[];
-    setAllPayslips(payslipsData);
-    setIsLoading(false);
-  }, []);
+  // Function to fetch payslips from API
+  const fetchPayslips = async (employeeId?: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-  useEffect(() => {
-    if (user && allPayslips.length > 0) {
-      // Filter payslips for the logged-in user
-      // Assuming employeeId 'EMP001' is for the primary test user (e.g., John Doe)
-      // and 'EMP002' for another.
-      // In a real app, you'd match user.id with payslip.employeeId
-      // For this example, let's filter by a known employeeId if user.fullName matches,
-      // or default to 'EMP001' if no direct match for simplicity with mock data.
-      let loggedInUserEmployeeId = 'EMP001'; // Default for testing
-      if (user.fullName === 'Jane Smith') {
-        loggedInUserEmployeeId = 'EMP002';
-      } else if (user.fullName === 'John Doe') {
-        // Or whatever the primary test user's name is
-        loggedInUserEmployeeId = 'EMP001';
+      const params = new URLSearchParams();
+      if (employeeId) {
+        params.append('empId', employeeId);
       }
-      // Add more sophisticated mapping if needed, or directly use user.id if it's stored as employeeId
 
-      const filteredPayslips = allPayslips.filter(
-        payslip => payslip.employeeId === loggedInUserEmployeeId
-      );
-      setUserPayslips(filteredPayslips);
-    } else if (!user && allPayslips.length > 0) {
-      // Handle case where user is not logged in but data is loaded (e.g., show no payslips or a message)
+      const response = await fetch(`/api/payslips?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch payslips');
+      }
+
+      const data: PayslipsResponse = await response.json();
+      setUserPayslips(data.payslips);
+    } catch (err) {
+      console.error('Error fetching payslips:', err);
+      setError('Failed to load payslips. Please try again.');
       setUserPayslips([]);
+    } finally {
+      setIsLoading(false);
     }
-  }, [user, allPayslips]);
+  };
+
+  // Function to get employee ID from user
+  const getUserEmployeeId = (user: { publicMetadata?: { empId?: string } }): string | null => {
+    return getEmployeeIdFromUser(user);
+  };
+
+  useEffect(() => {
+    if (user) {
+      const employeeId = getUserEmployeeId(user);
+      if (employeeId) {
+        fetchPayslips(employeeId);
+      } else {
+        // If no employee ID found, still fetch but it will return empty
+        fetchPayslips();
+      }
+    } else {
+      setIsLoading(false);
+    }
+  }, [user]);
 
   if (isLoading) {
     return (
       <AppLayout>
-        <div className='text-center p-10'>Loading payslips...</div>
+        <div className='flex justify-center items-center min-h-[400px]'>
+          <div className='text-center'>
+            <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4'></div>
+            <p className='text-gray-600 dark:text-gray-300'>Loading payslips...</p>
+          </div>
+        </div>
       </AppLayout>
     );
   }
@@ -257,7 +286,28 @@ export default function PayslipsPage() {
   if (!user) {
     return (
       <AppLayout>
-        <div className='text-center p-10'>Please log in to view your payslips.</div>
+        <div className='text-center p-10 bg-white dark:bg-gray-800 shadow-md rounded-lg'>
+          <p className='text-gray-600 dark:text-gray-300'>Please log in to view your payslips.</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppLayout>
+        <div className='text-center p-10 bg-white dark:bg-gray-800 shadow-md rounded-lg'>
+          <p className='text-red-600 dark:text-red-400 mb-4'>{error}</p>
+          <button
+            onClick={() => {
+              const employeeId = getUserEmployeeId(user);
+              fetchPayslips(employeeId || undefined);
+            }}
+            className='px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors'
+          >
+            Retry
+          </button>
+        </div>
       </AppLayout>
     );
   }

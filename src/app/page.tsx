@@ -1,7 +1,25 @@
+'use client';
+
 import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import AppLayout from './AppLayout';
 
 export default function Home() {
+  const router = useRouter();
+
+  // Handle redirect for signed-in users
+  useEffect(() => {
+    // This will run on the client side after the component mounts
+    const handleRedirect = () => {
+      router.push('/dashboard');
+    };
+
+    // Use a small delay to ensure Clerk state is loaded
+    const timer = setTimeout(handleRedirect, 100);
+    return () => clearTimeout(timer);
+  }, [router]);
+
   return (
     <AppLayout>
       <SignedOut>

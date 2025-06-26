@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@/generated/prisma';
+import { NextRequest, NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
 
@@ -27,39 +27,80 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params;
     const body = await request.json();
-    const { empId, name, email, phoneNo, designation, joiningDate, status } = body;
+    const {
+      firstName,
+      lastName,
+      officeEmail,
+      personalEmail,
+      mobileNo,
+      dateOfBirth,
+      salary,
+      joiningDate,
+      exitDate,
+      status,
+      currentDesignation,
+      employmentType,
+      stream,
+      githubUserId,
+      linkedinId,
+    } = body;
 
-    // Validate required fields
-    if (!empId || !name || !email || !phoneNo || !designation || !joiningDate || !status) {
-      return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
+    // First, get the existing employee to get the empId
+    const existingEmployeeRecord = await prisma.employee.findUnique({
+      where: { id },
+    });
+
+    if (!existingEmployeeRecord) {
+      return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
 
-    // Check if empId or email already exists for other employees
+    // Validate required fields
+    if (
+      !firstName ||
+      !lastName ||
+      !officeEmail ||
+      !mobileNo ||
+      !joiningDate ||
+      !status ||
+      !currentDesignation ||
+      !employmentType ||
+      !stream
+    ) {
+      return NextResponse.json({ error: 'All required fields must be provided' }, { status: 400 });
+    }
+
+    // Check if officeEmail already exists for other employees (empId shouldn't change)
     const existingEmployee = await prisma.employee.findFirst({
       where: {
-        AND: [
-          { id: { not: id } },
-          {
-            OR: [{ empId: empId }, { email: email }],
-          },
-        ],
+        AND: [{ id: { not: id } }, { officeEmail: officeEmail }],
       },
     });
 
     if (existingEmployee) {
-      return NextResponse.json({ error: 'Employee ID or email already exists' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Office email already exists for another employee' },
+        { status: 400 }
+      );
     }
 
     const employee = await prisma.employee.update({
       where: { id },
       data: {
-        empId,
-        name,
-        email,
-        phoneNo,
-        designation,
+        firstName,
+        lastName,
+        officeEmail,
+        personalEmail: personalEmail || null,
+        mobileNo,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+        salary: salary ? parseFloat(salary) : null,
         joiningDate: new Date(joiningDate),
+        exitDate: exitDate ? new Date(exitDate) : null,
         status,
+        currentDesignation,
+        employmentType,
+        stream,
+        githubUserId: githubUserId || null,
+        linkedinId: linkedinId || null,
       },
     });
 

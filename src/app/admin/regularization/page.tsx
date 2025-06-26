@@ -23,7 +23,8 @@ interface RegularizationRequest {
   createdAt: string;
   attendance: Attendance;
   employee?: {
-    name: string;
+    firstName: string;
+    lastName: string;
     empId: string;
   };
 }
@@ -161,7 +162,9 @@ export default function RegularizationAdminPage() {
                     <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white'>
                       {req.employee ? (
                         <div>
-                          <div className='font-medium'>{req.employee.name}</div>
+                          <div className='font-medium'>
+                            {req.employee.firstName} {req.employee.lastName}
+                          </div>
                           <div className='text-gray-500 text-xs'>{req.employee.empId}</div>
                         </div>
                       ) : (

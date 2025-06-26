@@ -7,7 +7,12 @@ capabilities.
 
 ## 🚀 Features
 
-- **Employee Management**: Add, edit, and manage employee records
+- **Employee Management**: Add, edit, and manage employee records with
+  auto-generated Employee IDs
+- **Excel Import/Export**: Bulk import employees from Excel files and export
+  employee data
+- **Employee Details**: Dedicated employee profile pages with comprehensive
+  information
 - **Attendance Tracking**: Real-time check-in/check-out with automated
   calculations
 - **Leave Management**: Leave applications, approvals, and balance tracking
@@ -17,6 +22,8 @@ capabilities.
 - **Dashboard Analytics**: Visual insights into attendance patterns
 - **Role-based Access**: Admin and employee roles with appropriate permissions
 - **Automated Code Quality**: ESLint, Prettier, and pre-commit hooks
+- **User-Employee Linking**: Automatic linking of Clerk users with employee
+  records by email
 
 ## 🛠️ Tech Stack
 
@@ -27,6 +34,7 @@ capabilities.
 - **Code Quality**: ESLint, Prettier, Husky, lint-staged
 - **Charts**: Recharts
 - **PDF Generation**: jsPDF, PDFKit
+- **Excel Processing**: SheetJS (xlsx), file-saver
 - **Logging**: Winston with daily log rotation
 
 ## 📋 Prerequisites
@@ -440,6 +448,70 @@ The application provides RESTful APIs for:
 - `/api/holidays` - Holiday management
 - `/api/leave` - Leave applications
 - `/api/regularization` - Attendance corrections
+- `/api/configurations` - System configuration management
+- `/api/sync-user` - User synchronization and employee linking
+
+## ⚙️ Configuration Management
+
+The application includes a comprehensive configuration management system that
+allows administrators to manage system settings without code changes.
+
+### Default Configurations
+
+The system comes pre-seeded with these configurations:
+
+| Configuration Key           | Default Value | Description                                   |
+| --------------------------- | ------------- | --------------------------------------------- |
+| `EMPLOYEE_ID_PREFIX`        | `TRINITS`     | Prefix used for generating employee IDs       |
+| `SANCTIONED_LEAVE_PER_YEAR` | `24`          | Total sanctioned leaves per year per employee |
+| `WORKING_HOURS_PER_DAY`     | `8`           | Standard working hours per day                |
+| `OVERTIME_THRESHOLD`        | `8.5`         | Hours threshold for overtime calculation      |
+
+### Admin Configuration Interface
+
+Administrators can manage configurations through:
+
+1. **Web Interface**: Navigate to `/admin/configurations`
+   - Add new configurations
+   - Edit existing configurations
+   - Delete configurations
+   - View configuration history
+
+2. **API Endpoints**:
+   ```bash
+   GET    /api/configurations      # List all configurations
+   POST   /api/configurations      # Create new configuration
+   GET    /api/configurations/:id  # Get specific configuration
+   PUT    /api/configurations/:id  # Update configuration
+   DELETE /api/configurations/:id  # Delete configuration
+   ```
+
+### Using Configurations in Code
+
+```typescript
+import {
+  getAppConfigurations,
+  getConfigurationValue,
+} from '@/lib/configurations';
+
+// Get all configurations with type safety
+const configs = await getAppConfigurations();
+console.log(configs.EMPLOYEE_ID_PREFIX); // "TRINITS"
+console.log(configs.SANCTIONED_LEAVE_PER_YEAR); // 24 (number)
+
+// Get specific configuration value
+const prefix = await getConfigurationValue('EMPLOYEE_ID_PREFIX');
+console.log(prefix); // "TRINITS"
+```
+
+### Configuration Features
+
+- **Type Safety**: Automatic type conversion for numbers and booleans
+- **Caching**: Built-in 5-minute cache to reduce database queries
+- **Fallback Values**: Default values when configurations are missing
+- **Unique Keys**: Configuration keys are enforced to be unique
+- **Admin Only**: Only administrators can modify configurations
+- **Audit Trail**: Automatic created/updated timestamps
 
 ## 🤝 Contributing
 

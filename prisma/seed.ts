@@ -14,8 +14,33 @@ const holidayData = [
   { date: new Date('2025-12-25T00:00:00.000Z'), name: 'Christmas' },
 ];
 
+const configurationData = [
+  {
+    configKey: 'EMPLOYEE_ID_PREFIX',
+    configValue: 'TRINITS',
+    description: 'Prefix used for generating employee IDs',
+  },
+  {
+    configKey: 'SANCTIONED_LEAVE_PER_YEAR',
+    configValue: '24',
+    description: 'Total number of sanctioned leaves per year for each employee',
+  },
+  {
+    configKey: 'WORKING_HOURS_PER_DAY',
+    configValue: '8',
+    description: 'Standard working hours per day',
+  },
+  {
+    configKey: 'OVERTIME_THRESHOLD',
+    configValue: '8.5',
+    description: 'Hours threshold after which overtime calculation begins',
+  },
+];
+
 async function main() {
   console.log(`Start seeding ...`);
+
+  // Seed holidays
   for (const h of holidayData) {
     const existingHoliday = await prisma.holiday.findFirst({
       where: { date: h.date },
@@ -37,6 +62,31 @@ async function main() {
       );
     }
   }
+
+  // Seed configurations
+  for (const config of configurationData) {
+    const existingConfig = await prisma.configuration.findUnique({
+      where: { configKey: config.configKey },
+    });
+
+    if (!existingConfig) {
+      const configuration = await prisma.configuration.create({
+        data: {
+          configKey: config.configKey,
+          configValue: config.configValue,
+          description: config.description,
+        },
+      });
+      console.log(
+        `Created configuration '${configuration.configKey}' with value: ${configuration.configValue}`
+      );
+    } else {
+      console.log(
+        `Configuration '${config.configKey}' already exists with value: ${existingConfig.configValue}. Skipping.`
+      );
+    }
+  }
+
   console.log(`Seeding finished.`);
 }
 

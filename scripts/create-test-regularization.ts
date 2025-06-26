@@ -56,7 +56,9 @@ async function createTestData() {
         },
       });
 
-      console.log(`Created regularization request for ${employee.name} (${employee.empId})`);
+      console.log(
+        `Created regularization request for ${employee.firstName} ${employee.lastName} (${employee.empId})`
+      );
     }
 
     console.log('Test data created successfully!');

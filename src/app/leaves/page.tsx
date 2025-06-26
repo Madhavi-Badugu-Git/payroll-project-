@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import AppLayout from '../AppLayout';
 import { useUser } from '@clerk/nextjs';
-import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PencilIcon, PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import AppLayout from '../AppLayout';
 
 // Interface aligned with the backend API model
 interface LeaveEntry {
@@ -23,12 +23,12 @@ interface LeaveEntry {
 
 // Aligned with API and other pages
 const LEAVE_TYPES: LeaveEntry['leaveType'][] = ['Sick', 'Casual', 'Earned'];
-const LEAVES_PER_MONTH = 2; // This business logic might need review
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function LeavesPage() {
   const { user } = useUser();
   const [leaves, setLeaves] = useState<LeaveEntry[]>([]);
+  const [sanctionedLeavePerYear, setSanctionedLeavePerYear] = useState<number>(24);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLeave, setEditingLeave] = useState<LeaveEntry | null>(null);
   const [formData, setFormData] = useState({
@@ -44,6 +44,29 @@ export default function LeavesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
+
+  // Fetch configurations
+  const fetchConfigurations = useCallback(async () => {
+    try {
+      const response = await fetch('/api/configurations');
+      if (!response.ok) {
+        throw new Error('Failed to fetch configurations');
+      }
+      const data = await response.json();
+      const configs = data.configurations.reduce(
+        (acc: Record<string, string>, config: { configKey: string; configValue: string }) => {
+          acc[config.configKey] = config.configValue;
+          return acc;
+        },
+        {}
+      );
+      setSanctionedLeavePerYear(parseInt(configs.SANCTIONED_LEAVE_PER_YEAR || '24'));
+    } catch (error) {
+      console.error('Error fetching configurations:', error);
+      // Use default value if configuration fetch fails
+      setSanctionedLeavePerYear(24);
+    }
+  }, []);
 
   const fetchLeaves = useCallback(async () => {
     if (!user) return;
@@ -93,9 +116,10 @@ export default function LeavesPage() {
 
   useEffect(() => {
     if (user) {
+      fetchConfigurations();
       fetchLeaves();
     }
-  }, [user, fetchLeaves]);
+  }, [user, fetchLeaves, fetchConfigurations]);
 
   useEffect(() => {
     if (toast) {
@@ -111,7 +135,7 @@ export default function LeavesPage() {
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
     const completedMonths = currentMonth;
-    const totalSanctioned = completedMonths * LEAVES_PER_MONTH;
+    const totalSanctioned = Math.floor((sanctionedLeavePerYear / 12) * completedMonths);
 
     const usedLeaves = leaves
       .filter(
@@ -132,7 +156,7 @@ export default function LeavesPage() {
     };
   };
 
-  const availableLeaves = useMemo(calculateAvailableLeaves, [leaves, user]);
+  const availableLeaves = useMemo(calculateAvailableLeaves, [leaves, user, sanctionedLeavePerYear]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>

@@ -6,7 +6,39 @@ import './react-calendar.css';
 // import holidaysData from './holidays.json'; // Removed mock data import
 import { hasAdminRole } from '@/lib/userutils';
 import { useUser } from '@clerk/nextjs';
-import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'; // Added icons
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Download as DownloadIcon,
+  Edit as EditIcon,
+} from '@mui/icons-material';
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CircularProgress,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from '@mui/material';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import AppLayout from '../AppLayout';
 
 interface Holiday {
@@ -54,7 +86,111 @@ export default function HolidaysPage() {
   const [holidayDate, setHolidayDate] = useState(toYYYYMMDD(new Date()));
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [holidayToDelete, setHolidayToDelete] = useState<Holiday | null>(null);
-  const isAdmin = useMemo(() => hasAdminRole(user), [user]);
+  const isAdmin = useMemo(() => (user ? hasAdminRole(user) : false), [user]);
+
+  const downloadHolidaysPDF = useCallback(async () => {
+    try {
+      // Check if we have data
+      if (holidays.length === 0) {
+        toast.error('No holidays data to export');
+        return;
+      }
+
+      console.log('Generating PDF for', holidays.length, 'holidays');
+
+      // Create PDF
+      const doc = new jsPDF();
+
+      // Add title
+      doc.setFontSize(20);
+      doc.setTextColor(40, 40, 40);
+      doc.text('Indian Holidays 2025', 14, 22);
+
+      // Add generation date
+      doc.setFontSize(12);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 32);
+
+      // Prepare table data
+      const tableData = holidays.map(holiday => {
+        const { formattedDate, dayName } = formatDateAndGetDay(holiday.date);
+        return [formattedDate, dayName, holiday.name];
+      });
+
+      // Add table
+      autoTable(doc, {
+        head: [['Date', 'Day', 'Holiday']],
+        body: tableData,
+        startY: 40,
+        styles: {
+          fontSize: 10,
+          cellPadding: 5,
+        },
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245],
+        },
+        margin: { top: 40, left: 14, right: 14 },
+      });
+
+      // Add footer
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text(
+          `Page ${i} of ${pageCount} | Payroll Management System`,
+          14,
+          doc.internal.pageSize.height - 10
+        );
+      }
+
+      // Generate filename
+      const filename = `holidays-2025-${new Date().toISOString().split('T')[0]}.pdf`;
+
+      // Try multiple download methods
+      try {
+        // Method 1: Direct save (works in most browsers)
+        doc.save(filename);
+        console.log('PDF downloaded successfully');
+      } catch (directError) {
+        console.warn('Direct save failed, using fallback:', directError);
+
+        // Method 2: Blob download (more compatible)
+        const pdfOutput = doc.output('blob');
+        const blob = new Blob([pdfOutput], { type: 'application/pdf' });
+
+        // Create download link
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.style.display = 'none';
+
+        // Add to DOM, click, and remove
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Clean up
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+        console.log('PDF downloaded using fallback method');
+      }
+
+      toast.success('Holidays PDF downloaded successfully!');
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+
+      toast.error(
+        `Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}. Please check the help section above.`
+      );
+    }
+  }, [holidays]);
 
   const getDayInfo = (date: Date, holidayList: Holiday[]): string => {
     const dateString = toYYYYMMDD(date);
@@ -108,6 +244,11 @@ export default function HolidaysPage() {
     fetchHolidays();
   }, [fetchHolidays]);
 
+  // Debug holidays data when it changes
+  useEffect(() => {
+    console.log('Holidays loaded:', holidays.length, 'entries');
+  }, [holidays]);
+
   useEffect(() => {
     if (selectedDate) {
       setSelectedDateInfo(getDayInfo(selectedDate, holidays));
@@ -150,12 +291,13 @@ export default function HolidaysPage() {
       }
       setShowConfirmDialog(false);
       setHolidayToDelete(null);
+      toast.success('Holiday deleted successfully!');
       fetchHolidays(); // Refresh list
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
       console.error(err);
-      alert(`Error: ${message}`);
+      toast.error(`Error: ${message}`);
     }
   };
 
@@ -167,7 +309,7 @@ export default function HolidaysPage() {
   const handleSubmitHolidayForm = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!holidayName || !holidayDate) {
-      alert('Please provide both name and date for the holiday.');
+      toast.error('Please provide both name and date for the holiday.');
       return;
     }
 
@@ -188,12 +330,13 @@ export default function HolidaysPage() {
         );
       }
       setShowModal(false);
+      toast.success(isEditing ? 'Holiday updated successfully!' : 'Holiday created successfully!');
       fetchHolidays(); // Refresh list
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
       console.error(err);
-      alert(`Error: ${message}`);
+      toast.error(`Error: ${message}`);
     }
   };
 
@@ -227,238 +370,231 @@ export default function HolidaysPage() {
   if (isLoading)
     return (
       <AppLayout>
-        <div className='text-center p-10'>Loading holidays...</div>
+        <Box display='flex' justifyContent='center' alignItems='center' minHeight='400px'>
+          <CircularProgress />
+        </Box>
       </AppLayout>
     );
   if (error && holidays.length === 0)
     return (
       <AppLayout>
-        <div className='text-center p-10 text-red-500'>Error: {error}</div>
+        <Box display='flex' justifyContent='center' alignItems='center' minHeight='400px'>
+          <Alert severity='error'>Error: {error}</Alert>
+        </Box>
       </AppLayout>
     );
 
   return (
     <AppLayout>
-      <div className='w-full max-w-7xl mx-auto p-4 md:p-6'>
-        <div className='flex justify-between items-center mb-8'>
-          <h1 className='text-2xl md:text-3xl font-bold text-gray-800 dark:text-white'>
+      <ToastContainer
+        position='top-right'
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme='light'
+      />
+
+      <Box sx={{ width: '100%', maxWidth: '1400px', mx: 'auto', p: { xs: 2, md: 3 } }}>
+        <Box display='flex' justifyContent='space-between' alignItems='center' mb={3}>
+          <Typography variant='h4' component='h1' fontWeight='bold' color='primary'>
             Indian Holidays 2025
-          </h1>{' '}
-          {/* Removed text-center from here */}
-          {isAdmin && (
-            <button
-              onClick={handleAddHoliday}
-              className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center'
-            >
-              <PlusIcon className='h-5 w-5 mr-2' /> Add Holiday
-            </button>
-          )}
-        </div>
-        {/* Modal for Add/Edit Holiday */}
-        {showModal && (
-          <div className='fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex justify-center items-center'>
-            <div className='bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md mx-4'>
-              <h2 className='text-xl font-semibold mb-6 text-gray-800 dark:text-white'>
-                {isEditing ? 'Edit Holiday' : 'Add New Holiday'}
-              </h2>
-              <form onSubmit={handleSubmitHolidayForm}>
-                <div className='mb-4'>
-                  <label
-                    htmlFor='holidayName'
-                    className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'
-                  >
-                    Holiday Name
-                  </label>
-                  <input
-                    type='text'
-                    id='holidayName'
-                    value={holidayName}
-                    onChange={e => setHolidayName(e.target.value)}
-                    className='mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-                    required
-                  />
-                </div>
-                <div className='mb-6'>
-                  <label
-                    htmlFor='holidayDate'
-                    className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'
-                  >
-                    Date
-                  </label>
-                  <input
-                    type='date'
-                    id='holidayDate'
-                    value={holidayDate}
-                    onChange={e => setHolidayDate(e.target.value)}
-                    className='mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-                    required
-                  />
-                </div>
-                <div className='flex justify-end gap-3'>
-                  <button
-                    type='button'
-                    onClick={() => setShowModal(false)}
-                    className='px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500'
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type='submit'
-                    className='px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-                  >
-                    {isEditing ? 'Save Changes' : 'Add Holiday'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+          </Typography>
+        </Box>
 
-        {/* Confirmation Dialog for Delete */}
-        {showConfirmDialog && (
-          <div className='fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex justify-center items-center'>
-            <div className='bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md mx-4'>
-              <h2 className='text-xl font-semibold mb-6 text-gray-800 dark:text-white'>
-                Confirm Delete
-              </h2>
-              <p className='mb-6 text-gray-700 dark:text-gray-300'>
-                Are you sure you want to delete the holiday{' '}
-                <span className='font-bold'>{holidayToDelete?.name}</span> on{' '}
-                <span className='font-bold'>
-                  {holidayToDelete ? toYYYYMMDD(holidayToDelete.date) : ''}
-                </span>
-                ?
-              </p>
-              <div className='flex justify-end gap-3'>
-                <button
-                  type='button'
-                  onClick={cancelDeleteHoliday}
-                  className='px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500'
-                >
-                  Cancel
-                </button>
-                <button
-                  type='button'
-                  onClick={confirmDeleteHoliday}
-                  className='px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500'
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className='flex flex-col md:flex-row gap-8'>
-          <div className='w-full md:w-auto md:flex-shrink-0 flex flex-col items-center md:items-start'>
-            <h2 className='text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300'>
-              Calendar View
-            </h2>
-            <div className='bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md'>
-              <Calendar
-                onChange={value => handleDateChange(value as Date)}
-                value={selectedDate}
-                tileClassName={tileClassName}
-                className='border-0'
+        {/* Material-UI Modal for Add/Edit Holiday */}
+        <Dialog open={showModal} onClose={() => setShowModal(false)} maxWidth='sm' fullWidth>
+          <DialogTitle>{isEditing ? 'Edit Holiday' : 'Add New Holiday'}</DialogTitle>
+          <form onSubmit={handleSubmitHolidayForm}>
+            <DialogContent>
+              <TextField
+                autoFocus
+                margin='dense'
+                id='holidayName'
+                label='Holiday Name'
+                type='text'
+                fullWidth
+                variant='outlined'
+                value={holidayName}
+                onChange={e => setHolidayName(e.target.value)}
+                required
+                sx={{ mb: 2 }}
               />
-            </div>
-          </div>
-          <div className='w-full md:flex-1'>
-            {selectedDateInfo && (
-              <div className='mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md'>
-                <h3 className='font-semibold text-gray-800 dark:text-white'>
-                  Info for{' '}
-                  {selectedDate ? formatDateAndGetDay(toYYYYMMDD(selectedDate)).formattedDate : ''}
-                </h3>
-                <p className='text-gray-600 dark:text-gray-300'>{selectedDateInfo}</p>
-              </div>
-            )}
-            <h2 className='text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300'>
-              Holiday List
-            </h2>
-            {error && holidays.length > 0 && <p className='text-red-500 mb-2'>{error}</p>}{' '}
-            {/* Corrected className quotes */}
-            <div className='max-h-[400px] md:max-h-[calc(100vh-250px)] overflow-y-auto bg-white dark:bg-gray-800 shadow-md rounded-lg border border-gray-200 dark:border-gray-700'>
-              <table className='w-full min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
-                <thead className='bg-gray-50 dark:bg-gray-700 sticky top-0 z-10'>
-                  <tr>
-                    <th
-                      scope='col'
-                      className='py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'
-                    >
-                      Date
-                    </th>
-                    <th
-                      scope='col'
-                      className='py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'
-                    >
-                      Day
-                    </th>
-                    <th
-                      scope='col'
-                      className='py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'
-                    >
-                      Holiday
-                    </th>
-                    {isAdmin && (
-                      <th
-                        scope='col'
-                        className='py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'
-                      >
-                        Actions
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className='divide-y divide-gray-200 dark:divide-gray-700'>
-                  {holidays.length === 0 && !isLoading && (
-                    <tr>
-                      <td
-                        colSpan={isAdmin ? 4 : 3}
-                        className='text-center py-4 text-gray-500 dark:text-gray-400'
-                      >
-                        No holidays found.
-                      </td>
-                    </tr>
+              <TextField
+                margin='dense'
+                id='holidayDate'
+                label='Date'
+                type='date'
+                fullWidth
+                variant='outlined'
+                value={holidayDate}
+                onChange={e => setHolidayDate(e.target.value)}
+                required
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setShowModal(false)} variant='outlined'>
+                Cancel
+              </Button>
+              <Button type='submit' variant='contained'>
+                {isEditing ? 'Save Changes' : 'Add Holiday'}
+              </Button>
+            </DialogActions>
+          </form>
+        </Dialog>
+
+        {/* Material-UI Confirmation Dialog for Delete */}
+        <Dialog open={showConfirmDialog} onClose={cancelDeleteHoliday} maxWidth='sm' fullWidth>
+          <DialogTitle>Confirm Delete</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to delete the holiday <strong>{holidayToDelete?.name}</strong>{' '}
+              on <strong>{holidayToDelete ? toYYYYMMDD(holidayToDelete.date) : ''}</strong>?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={cancelDeleteHoliday} variant='outlined'>
+              Cancel
+            </Button>
+            <Button onClick={confirmDeleteHoliday} variant='contained' color='error'>
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Container maxWidth='xl'>
+          <Box display='flex' flexDirection={{ xs: 'column' }} gap={4}>
+            <Box sx={{ width: { xs: '100%', md: 'auto' }, flexShrink: 0 }}>
+              <Card>
+                <CardContent sx={{ display: 'flex', gap: 2 }}>
+                  <Box sx={{ width: '60%' }}>
+                    <Calendar
+                      onChange={value => handleDateChange(value as Date)}
+                      value={selectedDate}
+                      tileClassName={tileClassName}
+                      className='border-0 w-full'
+                    />
+                  </Box>
+                  {selectedDateInfo && (
+                    <Box sx={{ width: '40%' }}>
+                      <Card variant='outlined'>
+                        <CardContent>
+                          <Typography variant='h6' gutterBottom>
+                            Info for{' '}
+                            {selectedDate
+                              ? formatDateAndGetDay(toYYYYMMDD(selectedDate)).formattedDate
+                              : ''}
+                          </Typography>
+                          <Typography variant='body2' color='text.secondary'>
+                            {selectedDateInfo}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Box>
                   )}
-                  {holidays.map(holiday => {
-                    const { formattedDate, dayName } = formatDateAndGetDay(holiday.date);
-                    return (
-                      <tr key={holiday.id}>
-                        <td className='py-3 px-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200'>
-                          {formattedDate}
-                        </td>
-                        <td className='py-3 px-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200'>
-                          {dayName}
-                        </td>
-                        <td className='py-3 px-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200'>
-                          {holiday.name}
-                        </td>
-                        {isAdmin && (
-                          <td className='py-3 px-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200'>
-                            <button
-                              onClick={() => handleEditHoliday(holiday)}
-                              className='text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-2 p-1'
-                            >
-                              <PencilIcon className='h-5 w-5' />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteHoliday(holiday.id)}
-                              className='text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1'
-                            >
-                              <TrashIcon className='h-5 w-5' />
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
+                </CardContent>
+              </Card>
+            </Box>
+
+            <Box sx={{ width: '100%', flex: 1 }}>
+              <Box display='flex' justifyContent='space-between' alignItems='center' mb={2}>
+                <Typography variant='h5' component='h2' color='text.secondary'>
+                  Holiday List
+                </Typography>
+                <Box display='flex' gap={1}>
+                  <Button
+                    onClick={downloadHolidaysPDF}
+                    variant='contained'
+                    color='success'
+                    startIcon={<DownloadIcon />}
+                    title='Download Holidays PDF'
+                  >
+                    Download PDF
+                  </Button>
+                  {isAdmin && (
+                    <Button onClick={handleAddHoliday} variant='contained' startIcon={<AddIcon />}>
+                      Add Holiday
+                    </Button>
+                  )}
+                </Box>
+              </Box>
+
+              {error && holidays.length > 0 && (
+                <Alert severity='error' sx={{ mb: 2 }}>
+                  {error}
+                </Alert>
+              )}
+
+              <TableContainer
+                component={Paper}
+                sx={{
+                  maxHeight: { xs: 400, md: 'calc(100vh - 250px)' },
+                  overflow: 'auto',
+                }}
+              >
+                <Table stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Day</TableCell>
+                      <TableCell>Holiday</TableCell>
+                      {isAdmin && <TableCell>Actions</TableCell>}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {holidays.length === 0 && !isLoading && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={isAdmin ? 4 : 3}
+                          align='center'
+                          sx={{ py: 4, color: 'text.secondary' }}
+                        >
+                          No holidays found.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {holidays.map(holiday => {
+                      const { formattedDate, dayName } = formatDateAndGetDay(holiday.date);
+                      return (
+                        <TableRow key={holiday.id} hover>
+                          <TableCell>{formattedDate}</TableCell>
+                          <TableCell>{dayName}</TableCell>
+                          <TableCell>{holiday.name}</TableCell>
+                          {isAdmin && (
+                            <TableCell>
+                              <IconButton
+                                onClick={() => handleEditHoliday(holiday)}
+                                color='primary'
+                                size='small'
+                              >
+                                <EditIcon />
+                              </IconButton>
+                              <IconButton
+                                onClick={() => handleDeleteHoliday(holiday.id)}
+                                color='error'
+                                size='small'
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          </Box>
+        </Container>
+      </Box>
     </AppLayout>
   );
 }

@@ -76,7 +76,8 @@ export async function GET(req: NextRequest) {
         attendance: true, // Include related attendance details
         employee: {
           select: {
-            name: true,
+            firstName: true,
+            lastName: true,
             empId: true,
           },
         },

@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { clerkClient } from '@clerk/nextjs/server';
+import { logDebug, logError, logInfo } from '@/lib/logger';
 import prisma from '@/lib/prisma';
-import { logError, logInfo, logDebug } from '@/lib/logger';
+import { clerkClient } from '@clerk/nextjs/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,16 +41,70 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Try to link with employee record by matching email
+    let linkedEmployee = null;
+    try {
+      const employee = await prisma.employee.findUnique({
+        where: { officeEmail: dbUser.email },
+      });
+
+      if (employee && !employee.userId) {
+        // Link the employee with the user
+        linkedEmployee = await prisma.employee.update({
+          where: { id: employee.id },
+          data: { userId: dbUser.id },
+        });
+
+        logInfo('Employee linked to user', {
+          userId,
+          employeeId: employee.id,
+          empId: employee.empId,
+          email: dbUser.email,
+        });
+      } else if (employee && employee.userId) {
+        logDebug('Employee already linked to another user', {
+          employeeId: employee.id,
+          existingUserId: employee.userId,
+          newUserId: dbUser.id,
+        });
+      } else {
+        logDebug('No employee found with matching email', {
+          email: dbUser.email,
+        });
+      }
+    } catch (employeeLinkError) {
+      logError(
+        `Error linking employee to user for ${userId} with email ${dbUser.email}`,
+        employeeLinkError
+      );
+      // Don't fail the entire sync if employee linking fails
+    }
+
     logInfo('User synced successfully', {
       userId,
       dbUserId: dbUser.id,
       email: dbUser.email,
       isNewUser: dbUser.createdAt.getTime() === dbUser.updatedAt.getTime(),
+      linkedEmployee: linkedEmployee
+        ? {
+            id: linkedEmployee.id,
+            empId: linkedEmployee.empId,
+            name: `${linkedEmployee.firstName} ${linkedEmployee.lastName}`,
+          }
+        : null,
     });
 
     return NextResponse.json({
       success: true,
       user: dbUser,
+      linkedEmployee: linkedEmployee
+        ? {
+            id: linkedEmployee.id,
+            empId: linkedEmployee.empId,
+            name: `${linkedEmployee.firstName} ${linkedEmployee.lastName}`,
+            designation: linkedEmployee.currentDesignation,
+          }
+        : null,
     });
   } catch (error) {
     logError('Error syncing user', error);

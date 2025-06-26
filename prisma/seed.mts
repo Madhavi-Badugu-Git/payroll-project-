@@ -154,7 +154,7 @@ async function main() {
         },
       });
       console.log(
-        `Created employee '${employee.name}' (${employee.empId}) with id: ${employee.id}`
+        `Created employee '${employee.firstName} ${employee.lastName}' (${employee.empId}) with id: ${employee.id}`
       );
     } else {
       console.log(

@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { EmailService } from '@/lib/emailService';
+import { LeaveManagementService } from '@/lib/leaveManagement';
+import { logDebug, logError, logInfo } from '@/lib/logger';
 import prisma from '@/lib/prisma';
 import { getAuth } from '@clerk/nextjs/server';
-import { logError, logInfo, logDebug } from '@/lib/logger';
+import { NextRequest, NextResponse } from 'next/server';
 
 // PUT /api/leave/[id] - Admin approves/rejects OR User edits their own leave application
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -79,9 +81,51 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         leaveType: leave.leaveType,
       });
 
-      // If approved, update attendance records for the date range
+      // If approved, update attendance records and deduct leave balance
       if (status === 'APPROVED') {
         const { employeeId, startDate, endDate } = leave;
+
+        // Calculate number of leave days
+        const leaveDays =
+          Math.ceil(
+            (new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
+          ) + 1;
+
+        // Get employee details to find empId
+        const employee = await prisma.employee.findUnique({
+          where: { id: employeeId },
+          select: { empId: true },
+        });
+
+        if (employee) {
+          // Try to deduct leaves from balance
+          const deductionSuccess = await LeaveManagementService.deductLeaves(
+            employee.empId,
+            id,
+            leaveDays
+          );
+
+          if (!deductionSuccess) {
+            logError(`Insufficient leave balance for employee ${employee.empId}`, {
+              leaveId: id,
+              requiredDays: leaveDays,
+              employeeId: employee.empId,
+            });
+
+            return NextResponse.json(
+              {
+                error: 'Insufficient leave balance. Cannot approve this leave application.',
+              },
+              { status: 400 }
+            );
+          }
+
+          logInfo(`Leave balance deducted successfully`, {
+            leaveId: id,
+            empId: employee.empId,
+            daysDeducted: leaveDays,
+          });
+        }
 
         const datesToUpdate = [];
         const currentDate = new Date(startDate);
@@ -116,6 +160,58 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         });
 
         await prisma.$transaction(updatePromises);
+      }
+
+      // If rejected or cancelled, credit back leaves if they were previously deducted
+      if (status === 'REJECTED' && leave.status === 'APPROVED') {
+        const { employeeId, startDate, endDate } = leave;
+        const leaveDays =
+          Math.ceil(
+            (new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
+          ) + 1;
+
+        // Get employee details to find empId
+        const employee = await prisma.employee.findUnique({
+          where: { id: employeeId },
+          select: { empId: true },
+        });
+
+        if (employee) {
+          await LeaveManagementService.creditLeaves(employee.empId, id, leaveDays);
+          logInfo(`Leave balance credited back`, {
+            leaveId: id,
+            empId: employee.empId,
+            daysCredited: leaveDays,
+          });
+        }
+      }
+
+      // Send email notification to employee about the decision
+      const employee = await prisma.employee.findUnique({
+        where: { id: leave.employeeId },
+        include: { user: true },
+      });
+
+      if (employee && employee.user?.email) {
+        const leaveDays =
+          Math.ceil(
+            (new Date(leave.endDate).getTime() - new Date(leave.startDate).getTime()) /
+              (1000 * 60 * 60 * 24)
+          ) + 1;
+
+        EmailService.sendLeaveDecisionNotification({
+          employeeName: `${employee.firstName} ${employee.lastName}`,
+          employeeEmail: employee.user.email,
+          leaveType: leave.leaveType,
+          startDate: leave.startDate.toLocaleDateString(),
+          endDate: leave.endDate.toLocaleDateString(),
+          days: leaveDays,
+          reason: leave.reason,
+          status: status as 'APPROVED' | 'REJECTED',
+          rejectionReason: requestBody.rejectionReason || undefined,
+        }).catch(error => {
+          logError('Failed to send leave decision email notification', error);
+        });
       }
 
       return NextResponse.json(updatedLeave);
