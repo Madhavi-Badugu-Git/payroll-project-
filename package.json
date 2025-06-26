@@ -15,7 +15,17 @@
     "logs:clean": "rm -rf logs/*.log logs/*.log.*",
     "logs:view": "tail -f logs/app-*.log",
     "logs:errors": "tail -f logs/error-*.log",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:migrate": "npx prisma migrate deploy",
+    "db:generate": "npx prisma generate",
+    "db:studio": "npx prisma studio",
+    "db:backup": "./scripts/backup.sh",
+    "deploy:prod": "./scripts/deploy.sh production",
+    "docker:build": "docker build -t trinits-payroll .",
+    "docker:run": "docker run -p 3000:3000 trinits-payroll",
+    "docker:prod": "docker-compose -f docker-compose.prod.yml up -d",
+    "docker:prod:down": "docker-compose -f docker-compose.prod.yml down",
+    "docker:prod:logs": "docker-compose -f docker-compose.prod.yml logs -f payroll-app"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.32.0",

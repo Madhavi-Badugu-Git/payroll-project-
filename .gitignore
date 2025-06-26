@@ -136,3 +136,4 @@ dist
 .pnp.*
 
 /src/generated/prisma
+.env.production.example
