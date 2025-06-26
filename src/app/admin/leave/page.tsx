@@ -1,6 +1,7 @@
 'use client';
 import AppLayout from '@/app/AppLayout';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import Link from 'next/dist/client/link';
 import { useCallback, useEffect, useState } from 'react';
 
 interface LeaveApplication {
@@ -110,7 +111,10 @@ export default function LeaveAdminPage() {
         )}
 
         <h1 className='text-2xl md:text-3xl font-bold text-gray-800 dark:text-white mb-6'>
-          Manage Leave Applications
+          <Link href='/admin/leave-management' className='flex items-center gap-2'>
+            <ArrowLeftIcon className='h-6 w-6' />
+            Manage Leave Applications
+          </Link>
         </h1>
 
         {isLoading && <p>Loading applications...</p>}

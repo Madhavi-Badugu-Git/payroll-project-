@@ -1,0 +1,97 @@
+import { PrismaClient } from '@/generated/prisma';
+import payslipsData from '../app/documents/payslip/payslips-data.json';
+
+const prisma = new PrismaClient();
+
+export async function migratePayslipsData() {
+  try {
+    console.log('Starting payslips data migration...');
+
+    for (const payslip of payslipsData) {
+      // Check if employee exists
+      const employee = await prisma.employee.findUnique({
+        where: { empId: payslip.employeeId },
+      });
+
+      if (!employee) {
+        console.warn(
+          `Employee with ID ${payslip.employeeId} not found. Skipping payslip ${payslip.id}`
+        );
+        continue;
+      }
+
+      // Convert date strings to Date objects
+      const payslipDate = new Date(payslip.payslipDate.split('/').reverse().join('-'));
+      const doj = new Date(payslip.doj.split('/').reverse().join('-'));
+
+      // Check if payslip already exists
+      const existingPayslip = await prisma.payslip.findUnique({
+        where: {
+          empId_payslipForMonth_year: {
+            empId: payslip.employeeId,
+            payslipForMonth: payslip.payslipForMonth,
+            year: payslip.year,
+          },
+        },
+      });
+
+      if (existingPayslip) {
+        console.log(
+          `Payslip for ${payslip.employeeId} - ${payslip.payslipForMonth} ${payslip.year} already exists. Skipping.`
+        );
+        continue;
+      }
+
+      // Create payslip
+      await prisma.payslip.create({
+        data: {
+          empId: payslip.employeeId,
+          payslipForMonth: payslip.payslipForMonth,
+          payslipDate,
+          location: 'Head Office', // Default value, update as needed
+          department: employee.stream, // Use employee's stream as department
+          designation: employee.currentDesignation,
+          doj,
+          gradeBand: 'G5', // Default value, update as needed
+          attendedDays: payslip.attendedDays,
+          arrearDays: payslip.arrearDays,
+          daysInMonth: payslip.daysInMonth,
+          basic: payslip.basic,
+          hra: payslip.hra,
+          specialAllowance: payslip.specialAllowance,
+          lta: payslip.lta,
+          totalSalary: payslip.totalSalary,
+          year: payslip.year,
+          providentFund: 0,
+          professionalTax: 0,
+          incomeTax: 0,
+          netSalary: payslip.totalSalary,
+        },
+      });
+
+      console.log(
+        `Created payslip for ${payslip.employeeId} - ${payslip.payslipForMonth} ${payslip.year}`
+      );
+    }
+
+    console.log('Payslips data migration completed successfully!');
+  } catch (error) {
+    console.error('Error during payslips data migration:', error);
+    throw error;
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+// Run migration if this file is executed directly
+if (require.main === module) {
+  migratePayslipsData()
+    .then(() => {
+      console.log('Migration completed');
+      process.exit(0);
+    })
+    .catch(error => {
+      console.error('Migration failed:', error);
+      process.exit(1);
+    });
+}

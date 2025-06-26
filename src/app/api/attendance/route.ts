@@ -1,4 +1,5 @@
 import { Prisma } from '@/generated/prisma';
+import { calculateHours, calculateOvertimeHours, getAttendanceStatus } from '@/lib/dateUtils';
 import prisma from '@/lib/prisma';
 import { getAuth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
@@ -148,7 +149,46 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { employeeId, date, type, time } = body;
 
-    if (!employeeId || !date || !type || !time) {
+    // Find the employee record to get the correct empId
+    let actualEmployeeId = employeeId;
+
+    // If employeeId looks like a Clerk user ID, try to find the employee by userId
+    if (employeeId && employeeId.startsWith('user_')) {
+      const user = await prisma.user.findUnique({
+        where: { clerkId: employeeId },
+        include: {
+          employee: {
+            select: { empId: true },
+          },
+        },
+      });
+
+      if (user?.employee?.empId) {
+        actualEmployeeId = user.employee.empId;
+      } else {
+        // Try to find employee by userId directly
+        const employee = await prisma.employee.findFirst({
+          where: { userId: employeeId },
+        });
+        if (employee) {
+          actualEmployeeId = employee.empId;
+        }
+      }
+    }
+
+    // Validate that we found a valid employee
+    const employee = await prisma.employee.findUnique({
+      where: { empId: actualEmployeeId },
+    });
+
+    if (!employee) {
+      return NextResponse.json(
+        { error: 'Employee record not found. Please sync your user account first.' },
+        { status: 404 }
+      );
+    }
+
+    if (!actualEmployeeId || !date || !type || !time) {
       return NextResponse.json(
         { error: 'Missing required fields (employeeId, date, type, time)' },
         { status: 400 }
@@ -198,7 +238,7 @@ export async function POST(req: NextRequest) {
 
     const existingRecord = await prisma.attendance.findFirst({
       where: {
-        employeeId: employeeId,
+        employeeId: actualEmployeeId,
         date: attendanceDate,
       },
     });
@@ -242,42 +282,43 @@ export async function POST(req: NextRequest) {
           : null;
 
     if (checkInTime && checkOutTime) {
+      console.log('Calculating hours for attendance:', {
+        checkInTime: checkInTime.toISOString(),
+        checkOutTime: checkOutTime.toISOString(),
+        employeeId: actualEmployeeId,
+        date: attendanceDate.toISOString(),
+      });
+
       if (checkOutTime < checkInTime) {
         // Handle invalid case: checkout time is before check-in time
         dataToUpdate.totalHours = 0;
         dataToUpdate.overtimeHours = 0;
-        currentStatus = 'Error: Checkout before Checkin'; // Or some other status indicating an issue
+        currentStatus = 'Error: Checkout before Checkin';
+        console.log('Invalid time range: checkout before checkin');
       } else {
-        const diffMs = checkOutTime.getTime() - checkInTime.getTime();
-        const totalHours = Math.max(0, diffMs / (1000 * 60 * 60));
-        dataToUpdate.totalHours = parseFloat(totalHours.toFixed(2));
-        dataToUpdate.overtimeHours = parseFloat(Math.max(0, totalHours - 8).toFixed(2));
+        const totalHours = calculateHours(checkInTime, checkOutTime);
+        dataToUpdate.totalHours = totalHours;
+        dataToUpdate.overtimeHours = calculateOvertimeHours(totalHours);
+        currentStatus = getAttendanceStatus(totalHours);
 
-        if (totalHours >= 8) {
-          currentStatus = 'Present';
-        } else if (totalHours >= 4) {
-          currentStatus = 'Half Day';
-        } else if (totalHours > 0) {
-          currentStatus = 'Short Leave'; // Or 'Present' if any presence is 'Present'
-        } else {
-          // totalHours is 0 or negative (already handled if checkOutTime < checkInTime)
-          currentStatus = 'Absent';
-        }
+        console.log('Calculated hours for attendance:', {
+          totalHours: dataToUpdate.totalHours,
+          overtimeHours: dataToUpdate.overtimeHours,
+          status: currentStatus,
+        });
       }
     } else if (checkInTime && !checkOutTime) {
       // Only check-in exists
       currentStatus = 'Present';
-      // When updating, if totalHours was already set (e.g. from a previous erroneous checkout now being corrected by a new checkin),
-      // preserve it unless it should be reset. For now, we assume it should be nulled if checkout is not present.
-      dataToUpdate.totalHours =
-        existingRecord?.totalHours !== undefined ? existingRecord.totalHours : null; // Or simply null if a check-in alone shouldn't show hours
-      dataToUpdate.overtimeHours =
-        existingRecord?.overtimeHours !== undefined ? existingRecord.overtimeHours : null; // Same as above
+      dataToUpdate.totalHours = null; // No check-out to calculate total hours
+      dataToUpdate.overtimeHours = null;
+      console.log('Only check-in exists, setting status to Present');
     } else if (!checkInTime && checkOutTime) {
-      // Only check-out exists (e.g. forgot to check-in)
-      currentStatus = existingRecord?.status || 'Absent'; // Or a specific status like 'Missed Check-in'
+      // Only check-out exists (unusual case - forgot to check-in)
+      currentStatus = 'Absent'; // Or could be 'Missed Check-in'
       dataToUpdate.totalHours = null; // No check-in to calculate total hours
       dataToUpdate.overtimeHours = null;
+      console.log('Only check-out exists, setting status to Absent');
     }
     // If neither checkInTime nor checkOutTime (e.g. manual status update in future), status remains as initialized.
 
@@ -293,7 +334,7 @@ export async function POST(req: NextRequest) {
     } else {
       // Creating a new record
       const dataToCreate: Prisma.AttendanceCreateInput = {
-        employeeId,
+        employeeId: actualEmployeeId,
         date: attendanceDate,
         status: currentStatus, // Status determined by the logic above
         checkIn: type === 'checkIn' ? actionTime : null,

@@ -5,10 +5,9 @@ import {
   CheckCircleIcon,
   ClockIcon,
   CogIcon,
-  CurrencyDollarIcon,
+  DocumentIcon,
   HomeIcon,
   SunIcon,
-  UserIcon,
   UsersIcon,
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
@@ -73,16 +72,10 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                 <span>Leaves</span>
               </div>
             </Link>
-            <Link href='/leaves-enhanced' className={linkClasses('/leaves-enhanced')}>
+            <Link href='/documents' className={linkClasses('/documents')}>
               <div className='flex items-center space-x-3'>
-                <CalendarDaysIcon className='h-5 w-5' />
-                <span>Leave Management</span>
-              </div>
-            </Link>
-            <Link href='/payslip' className={linkClasses('/payslip')}>
-              <div className='flex items-center space-x-3'>
-                <CurrencyDollarIcon className='h-5 w-5' />
-                <span>Payslips</span>
+                <DocumentIcon className='h-5 w-5' />
+                <span>Documents</span>
               </div>
             </Link>
             <Link href='/holidays' className={linkClasses('/holidays')}>
@@ -96,14 +89,6 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                 <div className='flex items-center space-x-3'>
                   <CheckCircleIcon className='h-5 w-5' />
                   <span>Regularization</span>
-                </div>
-              </Link>
-            )}
-            {isAdmin && (
-              <Link href='/admin/leave' className={linkClasses('/admin/leave')}>
-                <div className='flex items-center space-x-3'>
-                  <UserIcon className='h-5 w-5' />
-                  <span>Leave Approvals</span>
                 </div>
               </Link>
             )}

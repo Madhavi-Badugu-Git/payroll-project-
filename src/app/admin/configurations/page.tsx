@@ -1,23 +1,12 @@
 'use client';
 
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { useConfigurations } from '@/hooks/useConfigurations';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
+import { Configuration, ConfigurationFormData } from '@/types/configuration';
 import { PencilIcon, PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useEffect, useState } from 'react';
 import AppLayout from '../../AppLayout';
-
-interface Configuration {
-  id: string;
-  configKey: string;
-  configValue: string;
-  description: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface ConfigurationFormData {
-  configKey: string;
-  configValue: string;
-  description: string;
-}
 
 const initialFormData: ConfigurationFormData = {
   configKey: '',
@@ -26,40 +15,26 @@ const initialFormData: ConfigurationFormData = {
 };
 
 export default function ConfigurationsPage() {
-  const [configurations, setConfigurations] = useState<Configuration[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    configurations,
+    isLoading,
+    error,
+    fetchConfigurations,
+    createConfiguration,
+    updateConfiguration,
+    deleteConfiguration,
+  } = useConfigurations();
+
+  const { confirmDialog, showConfirmDialog, hideConfirmDialog } = useConfirmDialog();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingConfiguration, setEditingConfiguration] = useState<Configuration | null>(null);
-  const [deletingConfiguration, setDeletingConfiguration] = useState<Configuration | null>(null);
   const [formData, setFormData] = useState<ConfigurationFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [showToast, setShowToast] = useState(false);
-
-  // Fetch configurations
-  const fetchConfigurations = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/configurations');
-      if (!response.ok) {
-        throw new Error('Failed to fetch configurations');
-      }
-      const data = await response.json();
-      setConfigurations(data.configurations);
-    } catch (err) {
-      console.error('Error fetching configurations:', err);
-      setError('Failed to load configurations');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   useEffect(() => {
     fetchConfigurations();
-  }, []);
+  }, [fetchConfigurations]);
 
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -92,100 +67,41 @@ export default function ConfigurationsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setError(null);
 
-    try {
-      const url = editingConfiguration
-        ? `/api/configurations/${editingConfiguration.id}`
-        : '/api/configurations';
-      const method = editingConfiguration ? 'PUT' : 'POST';
+    const success = editingConfiguration
+      ? await updateConfiguration(editingConfiguration.id, formData)
+      : await createConfiguration(formData);
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save configuration');
-      }
-
-      await fetchConfigurations();
+    if (success) {
       setIsModalOpen(false);
       setFormData(initialFormData);
       setEditingConfiguration(null);
-      setToastMessage(
-        editingConfiguration
-          ? 'Configuration updated successfully!'
-          : 'Configuration created successfully!'
-      );
-      setShowToast(true);
-      setTimeout(() => {
-        setShowToast(false);
-        setToastMessage(null);
-      }, 3000);
-    } catch (err) {
-      console.error('Error saving configuration:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save configuration');
-    } finally {
-      setIsSubmitting(false);
     }
+
+    setIsSubmitting(false);
   };
 
   // Handle delete confirmation
   const handleDeleteClick = (configuration: Configuration) => {
-    setDeletingConfiguration(configuration);
-    setIsDeleteModalOpen(true);
+    showConfirmDialog({
+      title: 'Delete Configuration',
+      message: `Are you sure you want to delete the configuration "${configuration.configKey}"? This action cannot be undone.`,
+      onConfirm: () => handleDeleteConfiguration(configuration.id),
+      severity: 'error',
+    });
   };
 
   // Handle delete configuration
-  const handleDeleteConfiguration = async () => {
-    if (!deletingConfiguration) return;
-
-    setIsSubmitting(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/configurations/${deletingConfiguration.id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete configuration');
-      }
-
-      await fetchConfigurations();
-      setIsDeleteModalOpen(false);
-      setDeletingConfiguration(null);
-      setToastMessage('Configuration deleted successfully!');
-      setShowToast(true);
-      setTimeout(() => {
-        setShowToast(false);
-        setToastMessage(null);
-      }, 3000);
-    } catch (err) {
-      console.error('Error deleting configuration:', err);
-      setError('Failed to delete configuration');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleDeleteConfiguration = async (id: string) => {
+    await deleteConfiguration(id);
+    hideConfirmDialog();
   };
 
-  // Close modals
+  // Close modal
   const closeModal = () => {
     setIsModalOpen(false);
     setFormData(initialFormData);
     setEditingConfiguration(null);
-    setError(null);
-  };
-
-  const closeDeleteModal = () => {
-    setIsDeleteModalOpen(false);
-    setDeletingConfiguration(null);
-    setError(null);
   };
 
   if (isLoading) {
@@ -212,24 +128,6 @@ export default function ConfigurationsPage() {
             Add Configuration
           </button>
         </div>
-
-        {/* Toast Notification */}
-        {showToast && (
-          <div className='fixed top-4 right-4 left-4 sm:left-auto sm:right-5 bg-green-500 text-white py-3 px-4 rounded-md shadow-lg z-50 mx-auto sm:mx-0 max-w-sm'>
-            <div className='flex justify-between items-center'>
-              <span className='text-sm'>{toastMessage}</span>
-              <button
-                onClick={() => {
-                  setShowToast(false);
-                  setToastMessage(null);
-                }}
-                className='ml-4 text-green-100 hover:text-white flex-shrink-0'
-              >
-                <XMarkIcon className='h-5 w-5' />
-              </button>
-            </div>
-          </div>
-        )}
 
         {error && (
           <div className='mb-4 p-4 bg-red-100 dark:bg-red-900 border border-red-400 text-red-700 dark:text-red-300 rounded'>
@@ -442,47 +340,15 @@ export default function ConfigurationsPage() {
           </div>
         )}
 
-        {/* Delete Confirmation Modal */}
-        {isDeleteModalOpen && deletingConfiguration && (
-          <div className='fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50'>
-            <div className='relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800'>
-              <div className='flex justify-between items-center mb-4'>
-                <h3 className='text-lg font-medium text-gray-900 dark:text-white'>
-                  Confirm Delete
-                </h3>
-                <button
-                  onClick={closeDeleteModal}
-                  className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-                >
-                  <XMarkIcon className='h-6 w-6' />
-                </button>
-              </div>
-
-              <div className='mb-4'>
-                <p className='text-sm text-gray-600 dark:text-gray-300'>
-                  Are you sure you want to delete the configuration{' '}
-                  <strong>{deletingConfiguration.configKey}</strong>? This action cannot be undone.
-                </p>
-              </div>
-
-              <div className='flex justify-end space-x-3'>
-                <button
-                  onClick={closeDeleteModal}
-                  className='px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-md'
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteConfiguration}
-                  disabled={isSubmitting}
-                  className='px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed'
-                >
-                  {isSubmitting ? 'Deleting...' : 'Delete'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Confirm Dialog */}
+        <ConfirmDialog
+          open={confirmDialog.open}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={hideConfirmDialog}
+          severity={confirmDialog.severity}
+        />
       </div>
     </AppLayout>
   );

@@ -72,18 +72,39 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (
-      !firstName ||
-      !lastName ||
-      !officeEmail ||
-      !mobileNo ||
-      !joiningDate ||
-      !status ||
-      !currentDesignation ||
-      !employmentType ||
-      !stream
-    ) {
-      return NextResponse.json({ error: 'All required fields must be provided' }, { status: 400 });
+    const missingFields = [];
+    if (!firstName?.trim()) missingFields.push('firstName');
+    if (!lastName?.trim()) missingFields.push('lastName');
+    if (!officeEmail?.trim()) missingFields.push('officeEmail');
+    if (!mobileNo?.trim()) missingFields.push('mobileNo');
+    if (!joiningDate?.trim()) missingFields.push('joiningDate');
+    if (!status?.trim()) missingFields.push('status');
+    if (!currentDesignation?.trim()) missingFields.push('currentDesignation');
+    if (!employmentType?.trim()) missingFields.push('employmentType');
+    if (!stream?.trim()) missingFields.push('stream');
+
+    if (missingFields.length > 0) {
+      console.error('Missing required fields:', missingFields);
+      console.error('Received data:', body);
+      return NextResponse.json(
+        {
+          error: `Missing required fields: ${missingFields.join(', ')}`,
+          missingFields,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(officeEmail)) {
+      console.error('Invalid email format:', officeEmail);
+      return NextResponse.json(
+        {
+          error: 'Invalid office email format',
+        },
+        { status: 400 }
+      );
     }
 
     // Generate employee ID automatically

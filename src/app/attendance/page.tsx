@@ -1,32 +1,21 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import AppLayout from '../AppLayout';
+import { AttendanceEntry, LeaveApplicationData, useAttendance } from '@/hooks/useAttendance';
+import { combineDateAndTime, formatInputTime, formatTime24 } from '@/lib/dateUtils';
 import { useUser } from '@clerk/nextjs';
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { useEffect, useState } from 'react';
 import {
-  BarChart,
   Bar,
-  XAxis,
-  YAxis,
+  BarChart,
   CartesianGrid,
-  Tooltip,
   Legend,
   ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
-import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-
-interface AttendanceEntry {
-  id: string;
-  employeeId: string;
-  date: string; // ISO Date string (e.g., "2023-10-27T00:00:00.000Z")
-  checkIn?: string | null; // ISO DateTime string
-  checkOut?: string | null; // ISO DateTime string
-  status: string;
-  totalHours?: number | null;
-  overtimeHours?: number | null;
-  regularizationStatus?: string | null; // e.g., 'Pending', 'Approved', 'Rejected'
-  isRegularizationAllowed?: boolean;
-}
+import AppLayout from '../AppLayout';
 
 // Helper function to format numeric hours to "Xh Ym" string
 const formatHoursFromNumber = (totalDecimalHours?: number | null): string => {
@@ -58,12 +47,18 @@ const getStatusColorClass = (status?: string) => {
 
 export default function AttendancePage() {
   const { user } = useUser();
-  const [attendanceLog, setAttendanceLog] = useState<AttendanceEntry[]>([]);
-  const [todayRecord, setTodayRecord] = useState<AttendanceEntry | undefined>(undefined);
+  const {
+    attendanceLog,
+    todayRecord,
+    isLoading,
+    error,
+    fetchAttendanceLog,
+    handleAttendanceAction,
+    submitLeaveApplication,
+    submitRegularizationRequest,
+  } = useAttendance();
+
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
   const [viewedMonth, setViewedMonth] = useState(new Date());
   const [isRegularizeModalOpen, setIsRegularizeModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<AttendanceEntry | null>(null);
@@ -71,7 +66,7 @@ export default function AttendancePage() {
   const [requestedCheckIn, setRequestedCheckIn] = useState('');
   const [requestedCheckOut, setRequestedCheckOut] = useState('');
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
-  const [leaveForm, setLeaveForm] = useState({
+  const [leaveForm, setLeaveForm] = useState<LeaveApplicationData>({
     startDate: '',
     endDate: '',
     leaveType: '',
@@ -84,112 +79,26 @@ export default function AttendancePage() {
   const handleLeaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !user.id) {
-      setToast({ message: 'You must be logged in to apply for leave.', type: 'error' });
       return;
     }
     setLeaveSubmitting(true);
-    setToast(null);
 
-    try {
-      const response = await fetch('/api/leave', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          employeeId: user.id,
-          ...leaveForm,
-        }),
-      });
+    const success = await submitLeaveApplication(leaveForm, user.id);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to submit leave application.');
-      }
-
-      setToast({ message: 'Leave application submitted successfully!', type: 'success' });
+    if (success) {
       setIsLeaveModalOpen(false);
       setLeaveForm({ startDate: '', endDate: '', leaveType: '', reason: '' });
-      fetchAttendanceLog(viewedMonth); // Refresh the log to show leave status
-    } catch (err) {
-      if (err instanceof Error) {
-        setToast({ message: err.message, type: 'error' });
-      } else {
-        setToast({ message: 'An unknown error occurred.', type: 'error' });
-      }
-    } finally {
-      setLeaveSubmitting(false);
     }
+
+    setLeaveSubmitting(false);
   };
 
-  const fetchAttendanceLog = useCallback(
-    async (date: Date) => {
-      if (!user || !user.id) {
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      setError(null);
-      try {
-        const year = date.getFullYear();
-        const month = date.getMonth() + 1; // getMonth() is 0-indexed
-        const response = await fetch(
-          `/api/attendance?employeeId=${user.id}&year=${year}&month=${month}`
-        );
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Failed to fetch attendance: ${response.statusText}`);
-        }
-        const data: AttendanceEntry[] = await response.json();
-
-        // Add client-side logic to determine if regularization is allowed
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const threeDaysAgo = new Date(today);
-        threeDaysAgo.setDate(today.getDate() - 3);
-
-        const processedData = data.map(entry => {
-          const entryDate = new Date(entry.date);
-          const isAllowed =
-            ((entry.status === 'Absent' || entry.status === 'Half Day') &&
-              entryDate >= threeDaysAgo &&
-              entryDate < today &&
-              !entry.regularizationStatus) ||
-            true;
-          return { ...entry, isRegularizationAllowed: isAllowed };
-        });
-
-        setAttendanceLog(processedData);
-      } catch (err) {
-        console.error('Fetch error:', err);
-        if (err instanceof Error) {
-          setError(err.message || 'Could not fetch attendance data.');
-        } else {
-          setError('An unknown error occurred while fetching attendance data.');
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [user]
-  );
-
+  // Use the hook's fetchAttendanceLog function
   useEffect(() => {
-    if (user) {
-      fetchAttendanceLog(viewedMonth);
+    if (user && user.id) {
+      fetchAttendanceLog(viewedMonth, user.id);
     }
   }, [fetchAttendanceLog, viewedMonth, user]);
-
-  useEffect(() => {
-    console.log('Attendance log updated:', attendanceLog);
-    if (user && attendanceLog.length > 0) {
-      const currentDayEntry = attendanceLog.find(entry =>
-        entry.date.startsWith(todayDateOnlyString)
-      );
-      setTodayRecord(currentDayEntry);
-    } else if (user && attendanceLog.length === 0 && !isLoading) {
-      // If log is empty after loading and user exists, there's no record for today (or any day)
-      setTodayRecord(undefined);
-    }
-  }, [user, attendanceLog, todayDateOnlyString, isLoading]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -198,19 +107,15 @@ export default function AttendancePage() {
 
   const formatTime = (isoString?: string | null) => {
     if (!isoString) return '--:--';
-    return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatTime24(isoString);
   };
 
   const handleOpenRegularizeModal = (entry: AttendanceEntry) => {
     setSelectedEntry(entry);
     setRegularizationReason('');
     // Pre-fill times if they exist, otherwise empty
-    setRequestedCheckIn(
-      entry.checkIn ? new Date(entry.checkIn).toTimeString().substring(0, 5) : '09:30'
-    );
-    setRequestedCheckOut(
-      entry.checkOut ? new Date(entry.checkOut).toTimeString().substring(0, 5) : '18:30'
-    );
+    setRequestedCheckIn(entry.checkIn ? formatInputTime(entry.checkIn) : '09:30');
+    setRequestedCheckOut(entry.checkOut ? formatInputTime(entry.checkOut) : '18:30');
     setIsRegularizeModalOpen(true);
   };
 
@@ -218,10 +123,14 @@ export default function AttendancePage() {
     e.preventDefault();
     if (!selectedEntry) return;
 
-    // Combine date with time strings to create full ISO strings
+    // Use date utilities for consistent datetime handling
     const entryDate = selectedEntry.date.split('T')[0];
-    const checkInDateTime = requestedCheckIn ? `${entryDate}T${requestedCheckIn}:00.000Z` : null;
-    const checkOutDateTime = requestedCheckOut ? `${entryDate}T${requestedCheckOut}:00.000Z` : null;
+    const checkInDateTime = requestedCheckIn
+      ? combineDateAndTime(entryDate, requestedCheckIn)
+      : null;
+    const checkOutDateTime = requestedCheckOut
+      ? combineDateAndTime(entryDate, requestedCheckOut)
+      : null;
 
     const payload = {
       attendanceId: selectedEntry.id,
@@ -231,69 +140,25 @@ export default function AttendancePage() {
       requestedCheckOut: checkOutDateTime,
     };
 
-    try {
-      const response = await fetch('/api/regularization', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+    const success = await submitRegularizationRequest(payload);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to submit request.');
-      }
-
-      setToast({ message: 'Regularization request submitted successfully!', type: 'success' });
+    if (success) {
       setIsRegularizeModalOpen(false);
-      // Refresh data to show updated status
-      fetchAttendanceLog(viewedMonth);
-    } catch (err) {
-      if (err instanceof Error) {
-        setToast({ message: err.message, type: 'error' });
-      } else {
-        setToast({ message: 'An unknown error occurred.', type: 'error' });
-      }
     }
   };
 
-  const handleAttendanceAction = async (type: 'checkIn' | 'checkOut') => {
-    if (!user || !user.id) return;
-    setToast(null);
-    // Let fetchAttendanceLog handle loading state
-    setError(null);
-    const now = new Date();
-    const payload = {
-      employeeId: user.id,
-      date: todayDateOnlyString,
-      type: type,
-      time: now.toISOString(),
-    };
-    try {
-      const response = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      // Always refresh attendance log for the currently viewed month
-      await fetchAttendanceLog(viewedMonth);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        setToast({ message: errorData.error || `Failed to ${type}.`, type: 'error' });
-        return;
-      }
-      setToast({
-        message: `${type === 'checkIn' ? 'Check-in' : 'Check-out'} successful!`,
-        type: 'success',
-      });
-    } catch (err) {
-      console.error('Error in handleAttendanceAction:', err);
-      setToast({ message: `An error occurred while performing ${type}.`, type: 'error' });
+  // Use the hook's handleAttendanceAction function directly
+  const handleCheckIn = () => {
+    if (user && user.id) {
+      handleAttendanceAction('checkIn', user.id);
     }
   };
 
-  const handleCheckIn = () => handleAttendanceAction('checkIn');
-  const handleCheckOut = () => handleAttendanceAction('checkOut');
+  const handleCheckOut = () => {
+    if (user && user.id) {
+      handleAttendanceAction('checkOut', user.id);
+    }
+  };
 
   const canCheckIn =
     !todayRecord || !todayRecord.checkIn || (todayRecord.checkIn && todayRecord.checkOut);
@@ -321,26 +186,19 @@ export default function AttendancePage() {
   }
 
   const chartData = userDisplayLog
-    .filter(entry => typeof entry.totalHours === 'number')
+    .filter(entry => typeof entry.totalHours === 'number' && entry.totalHours > 0)
     .map(entry => ({
-      // date: new Date(entry.date).toLocaleDateString([], { month: 'short', day: 'numeric' }),
       // API returns date as ISO string like "2023-11-15T00:00:00.000Z"
       // We need just the date part for display
       date: new Date(entry.date.split('T')[0] + 'T00:00:00').toLocaleDateString([], {
         month: 'short',
         day: 'numeric',
       }), // Ensure correct date parsing for local timezone display
+      originalDate: entry.date, // Keep original date for proper sorting
       totalHours: entry.totalHours || 0,
       overtimeHours: entry.overtimeHours || 0,
     }))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
+    .sort((a, b) => new Date(a.originalDate).getTime() - new Date(b.originalDate).getTime()); // Sort chronologically for better chart readability
 
   if (isLoading && attendanceLog.length === 0) {
     // Show loading only on initial load
@@ -357,7 +215,7 @@ export default function AttendancePage() {
         <div className='text-center p-10 text-red-500'>
           Error: {error}{' '}
           <button
-            onClick={() => fetchAttendanceLog(viewedMonth)}
+            onClick={() => user && user.id && fetchAttendanceLog(viewedMonth, user.id)}
             className='text-blue-500 underline ml-2'
           >
             Try again
@@ -378,18 +236,6 @@ export default function AttendancePage() {
   return (
     <AppLayout>
       <div className='w-full max-w-4xl mx-auto p-4 md:p-6'>
-        {/* Toast Notification (matching employees page style) */}
-        {toast && (
-          <div
-            className={`fixed top-5 right-5 z-50 px-6 py-3 rounded-md shadow-lg text-white font-semibold flex items-center transition-all duration-300 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}
-          >
-            <span>{toast.message}</span>
-            <button onClick={() => setToast(null)} className='ml-4 text-white hover:text-gray-200'>
-              <XMarkIcon className='h-5 w-5' />
-            </button>
-          </div>
-        )}
-
         <h1 className='text-2xl md:text-3xl font-bold text-gray-800 dark:text-white mb-6'>
           My Attendance
         </h1>
@@ -566,10 +412,15 @@ export default function AttendancePage() {
 
         {userDisplayLog.length > 0 && (
           <div className='mt-8 bg-white dark:bg-gray-800 shadow-md rounded-lg p-6'>
-            <h2 className='text-xl font-semibold text-gray-700 dark:text-white mb-4'>
-              Attendance Chart (
-              {viewedMonth.toLocaleString('default', { month: 'long', year: 'numeric' })})
-            </h2>
+            <div className='flex justify-between items-center mb-4'>
+              <h2 className='text-xl font-semibold text-gray-700 dark:text-white'>
+                Attendance Chart (
+                {viewedMonth.toLocaleString('default', { month: 'long', year: 'numeric' })})
+              </h2>
+              <p className='text-sm text-gray-500 dark:text-gray-400'>
+                Showing {chartData.length} days with recorded hours (excluding zero-hour days)
+              </p>
+            </div>
             <ResponsiveContainer width='100%' height={400}>
               <BarChart
                 data={chartData}

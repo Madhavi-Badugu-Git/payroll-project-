@@ -118,6 +118,77 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+
+    // First, get the employee to get the empId for related record checks
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+    });
+
+    if (!employee) {
+      return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
+    }
+
+    // Check for related records that would prevent deletion
+    const [
+      leaveApplications,
+      attendanceRegularizations,
+      promotions,
+      payslips,
+      leaveBalances,
+      leaveAccumulations,
+      leaveTransactions,
+    ] = await Promise.all([
+      prisma.leaveApplication.count({ where: { employeeId: id } }),
+      prisma.attendanceRegularization.count({ where: { employeeId: id } }),
+      prisma.employeePromotion.count({ where: { empId: employee.empId } }),
+      prisma.payslip.count({ where: { empId: employee.empId } }),
+      prisma.leaveBalance.count({ where: { empId: employee.empId } }),
+      prisma.leaveAccumulation.count({ where: { empId: employee.empId } }),
+      prisma.leaveTransaction.count({ where: { empId: employee.empId } }),
+    ]);
+
+    const totalRelatedRecords =
+      leaveApplications +
+      attendanceRegularizations +
+      promotions +
+      payslips +
+      leaveBalances +
+      leaveAccumulations +
+      leaveTransactions;
+
+    if (totalRelatedRecords > 0) {
+      const relatedRecordDetails = [];
+      if (leaveApplications > 0)
+        relatedRecordDetails.push(`${leaveApplications} leave application(s)`);
+      if (attendanceRegularizations > 0)
+        relatedRecordDetails.push(`${attendanceRegularizations} attendance regularization(s)`);
+      if (promotions > 0) relatedRecordDetails.push(`${promotions} promotion(s)`);
+      if (payslips > 0) relatedRecordDetails.push(`${payslips} payslip(s)`);
+      if (leaveBalances > 0) relatedRecordDetails.push(`${leaveBalances} leave balance record(s)`);
+      if (leaveAccumulations > 0)
+        relatedRecordDetails.push(`${leaveAccumulations} leave accumulation record(s)`);
+      if (leaveTransactions > 0)
+        relatedRecordDetails.push(`${leaveTransactions} leave transaction(s)`);
+
+      return NextResponse.json(
+        {
+          error: 'Cannot delete employee',
+          message: `This employee has related records that must be handled first: ${relatedRecordDetails.join(', ')}. Please contact an administrator to handle the deletion of related data.`,
+          relatedRecords: {
+            leaveApplications,
+            attendanceRegularizations,
+            promotions,
+            payslips,
+            leaveBalances,
+            leaveAccumulations,
+            leaveTransactions,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    // If no related records, proceed with deletion
     await prisma.employee.delete({
       where: { id },
     });
@@ -125,6 +196,19 @@ export async function DELETE(
     return NextResponse.json({ message: 'Employee deleted successfully' });
   } catch (error) {
     console.error('Error deleting employee:', error);
+
+    // Check if it's a foreign key constraint error
+    if (error instanceof Error && error.message.includes('Foreign key constraint')) {
+      return NextResponse.json(
+        {
+          error: 'Cannot delete employee due to related records',
+          message:
+            'This employee has related records that prevent deletion. Please contact an administrator.',
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json({ error: 'Failed to delete employee' }, { status: 500 });
   }
 }

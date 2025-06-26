@@ -31,6 +31,7 @@ capabilities.
 - **Backend**: Next.js API Routes, Prisma ORM
 - **Database**: PostgreSQL
 - **Authentication**: Clerk
+- **Date/Time**: date-fns for consistent date handling
 - **Code Quality**: ESLint, Prettier, Husky, lint-staged
 - **Charts**: Recharts
 - **PDF Generation**: jsPDF, PDFKit
@@ -512,6 +513,45 @@ console.log(prefix); // "TRINITS"
 - **Unique Keys**: Configuration keys are enforced to be unique
 - **Admin Only**: Only administrators can modify configurations
 - **Audit Trail**: Automatic created/updated timestamps
+
+## 📅 Date Utilities
+
+The application uses a centralized date utility system built with `date-fns` for
+consistent date and time formatting. All date operations should use the
+utilities from `/src/lib/dateUtils.ts`.
+
+### Key Features
+
+- **Timezone Safety**: Proper handling of timezone issues in attendance and
+  regularization
+- **Consistent Formatting**: Standardized date/time formats across the
+  application
+- **Business Logic**: Built-in functions for attendance calculations and working
+  day checks
+- **Type Safety**: Full TypeScript support with date-fns
+
+### Quick Example
+
+```typescript
+import {
+  formatDisplayDate,
+  formatTime24,
+  calculateHours,
+  combineDateAndTime,
+} from '@/lib/dateUtils';
+
+// Format for display
+const date = formatDisplayDate('2025-06-26'); // "Jun 26, 2025"
+const time = formatTime24('2025-06-26T09:30:00'); // "09:30"
+
+// Calculate working hours
+const hours = calculateHours('09:00:00', '17:30:00'); // 8.5
+
+// Combine for forms (timezone-safe)
+const datetime = combineDateAndTime('2025-06-26', '09:30'); // "2025-06-26T09:30:00"
+```
+
+For detailed usage, see `/docs/date-utilities.md`.
 
 ## 🤝 Contributing
 

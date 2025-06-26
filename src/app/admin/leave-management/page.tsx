@@ -1,5 +1,8 @@
 'use client';
 
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
+import { useLeaveManagement } from '@/hooks/useLeaveManagement';
 import { hasAdminRole } from '@/lib/userutils';
 import { useUser } from '@clerk/nextjs';
 import {
@@ -10,220 +13,93 @@ import {
   PlayIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import AppLayout from '../../AppLayout';
-
-interface AdminStats {
-  totalEmployees: number;
-  employeesWithLeaveBalance: number;
-  totalLeavesAllocated: number;
-  totalLeavesUsed: number;
-  pendingApplications: number;
-}
-
-interface EmployeeLeaveInfo {
-  empId: string;
-  firstName: string;
-  lastName: string;
-  balance: {
-    totalAllocated: number;
-    totalUsed: number;
-    totalAvailable: number;
-    carryForward: number;
-  } | null;
-  pendingApplications: number;
-}
 
 export default function AdminLeaveManagementPage() {
   const { user } = useUser();
   const isAdmin = useMemo(() => (user ? hasAdminRole(user) : false), [user]);
 
-  const [stats, setStats] = useState<AdminStats>({
-    totalEmployees: 0,
-    employeesWithLeaveBalance: 0,
-    totalLeavesAllocated: 0,
-    totalLeavesUsed: 0,
-    pendingApplications: 0,
-  });
-
-  const [employeeLeaveInfo, setEmployeeLeaveInfo] = useState<EmployeeLeaveInfo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
 
-  // Fetch admin statistics
-  const fetchStats = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  const {
+    stats,
+    employeeLeaveInfo,
+    isLoading,
+    isProcessing,
+    fetchStats,
+    processMonthlyAllocation,
+    processCarryForward,
+  } = useLeaveManagement();
 
-      // Fetch employees
-      const employeesResponse = await fetch('/api/employees?limit=1000');
-      const employeesData = await employeesResponse.json();
-      const employees = employeesData.employees || [];
-
-      // Initialize stats
-      let totalLeavesAllocated = 0;
-      let totalLeavesUsed = 0;
-      let employeesWithBalance = 0;
-      const employeeInfos: EmployeeLeaveInfo[] = [];
-
-      // Fetch leave info for each employee
-      for (const employee of employees) {
-        try {
-          const leaveResponse = await fetch(
-            `/api/leave-management?empId=${employee.empId}&year=${selectedYear}`
-          );
-          const leaveData = await leaveResponse.json();
-
-          const employeeInfo: EmployeeLeaveInfo = {
-            empId: employee.empId,
-            firstName: employee.firstName,
-            lastName: employee.lastName,
-            balance: leaveData.balance,
-            pendingApplications: 0, // Will be calculated separately
-          };
-
-          if (leaveData.balance) {
-            employeesWithBalance++;
-            totalLeavesAllocated += leaveData.balance.totalAllocated;
-            totalLeavesUsed += leaveData.balance.totalUsed;
-          }
-
-          employeeInfos.push(employeeInfo);
-        } catch (error) {
-          console.error(`Failed to fetch leave info for ${employee.empId}:`, error);
-          // Add employee without balance info
-          employeeInfos.push({
-            empId: employee.empId,
-            firstName: employee.firstName,
-            lastName: employee.lastName,
-            balance: null,
-            pendingApplications: 0,
-          });
-        }
-      }
-
-      // Fetch pending applications count
-      const leaveResponse = await fetch('/api/leave');
-      const allLeaves: Array<{ status: string }> = await leaveResponse.json();
-      const pendingApplications = allLeaves.filter(leave => leave.status === 'PENDING').length;
-
-      setStats({
-        totalEmployees: employees.length,
-        employeesWithLeaveBalance: employeesWithBalance,
-        totalLeavesAllocated,
-        totalLeavesUsed,
-        pendingApplications,
-      });
-
-      setEmployeeLeaveInfo(employeeInfos);
-    } catch (error) {
-      console.error('Error fetching admin stats:', error);
-      setToast({ message: 'Failed to fetch leave management statistics', type: 'error' });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedYear]);
+  const { confirmDialog, showConfirmDialog, hideConfirmDialog } = useConfirmDialog();
 
   useEffect(() => {
     if (isAdmin) {
-      fetchStats();
+      fetchStats(selectedYear);
     }
-  }, [isAdmin, fetchStats]);
+  }, [isAdmin, selectedYear, fetchStats]);
 
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
-
-  const processMonthlyAllocation = async () => {
-    setIsProcessing(true);
-    try {
-      const response = await fetch('/api/leave-management', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'monthly-allocation', empId: 'ADMIN' }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process monthly allocation');
-      }
-
-      setToast({ message: 'Monthly leave allocation processed successfully!', type: 'success' });
-      fetchStats(); // Refresh data
-    } catch (error) {
-      console.error('Error processing monthly allocation:', error);
-      setToast({
-        message: error instanceof Error ? error.message : 'Failed to process monthly allocation',
-        type: 'error',
-      });
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleProcessMonthlyAllocation = async () => {
+    showConfirmDialog({
+      title: 'Process Monthly Allocation',
+      message:
+        'Are you sure you want to process monthly leave allocation for all employees? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          await processMonthlyAllocation();
+          await fetchStats(selectedYear); // Refresh data
+        } catch (_error) {
+          // Error is already handled in the hook
+        }
+      },
+    });
   };
 
-  const processYearEndCarryForward = async () => {
-    setIsProcessing(true);
-    try {
-      const response = await fetch('/api/leave-management', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'year-end-carry-forward',
-          empId: 'ADMIN',
-          maxCarryForwardDays: 10,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process year-end carry forward');
-      }
-
-      setToast({ message: 'Year-end carry forward processed successfully!', type: 'success' });
-      fetchStats(); // Refresh data
-    } catch (error) {
-      console.error('Error processing year-end carry forward:', error);
-      setToast({
-        message:
-          error instanceof Error ? error.message : 'Failed to process year-end carry forward',
-        type: 'error',
-      });
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleProcessCarryForward = async () => {
+    showConfirmDialog({
+      title: 'Process Year-End Carry Forward',
+      message:
+        'Are you sure you want to process year-end carry forward for all employees? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          await processCarryForward();
+          await fetchStats(selectedYear); // Refresh data
+        } catch (_error) {
+          // Error is already handled in the hook
+        }
+      },
+    });
   };
 
   const initializeEmployeeLeaves = async (empId: string, joiningDate: string) => {
-    try {
-      const response = await fetch('/api/leave-management', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'initialize',
-          empId,
-          joiningDate,
-        }),
-      });
+    showConfirmDialog({
+      title: 'Initialize Leave Balance',
+      message: `Are you sure you want to initialize leave balance for employee ${empId}?`,
+      onConfirm: async () => {
+        try {
+          const response = await fetch('/api/leave-management', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'initialize',
+              empId,
+              joiningDate,
+            }),
+          });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to initialize employee leaves');
-      }
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to initialize employee leaves');
+          }
 
-      setToast({ message: `Leave balance initialized for ${empId}`, type: 'success' });
-      fetchStats(); // Refresh data
-    } catch (error) {
-      console.error('Error initializing employee leaves:', error);
-      setToast({
-        message: error instanceof Error ? error.message : 'Failed to initialize employee leaves',
-        type: 'error',
-      });
-    }
+          await fetchStats(selectedYear); // Refresh data
+        } catch (error) {
+          console.error('Error initializing employee leaves:', error);
+        }
+      },
+    });
   };
 
   if (!isAdmin) {
@@ -249,17 +125,6 @@ export default function AdminLeaveManagementPage() {
   return (
     <AppLayout>
       <div className='w-full max-w-7xl mx-auto p-4 md:p-6'>
-        {toast && (
-          <div
-            className={`fixed top-5 right-5 z-50 px-6 py-3 rounded-md shadow-lg text-white font-semibold flex items-center transition-all duration-300 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}
-          >
-            <span>{toast.message}</span>
-            <button onClick={() => setToast(null)} className='ml-4 text-white hover:text-gray-200'>
-              ×
-            </button>
-          </div>
-        )}
-
         <div className='flex justify-between items-center mb-6'>
           <h1 className='text-2xl md:text-3xl font-bold text-gray-800 dark:text-white'>
             Leave Management Dashboard
@@ -335,19 +200,22 @@ export default function AdminLeaveManagementPage() {
             </div>
           </div>
 
-          <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg p-6'>
-            <div className='flex items-center'>
-              <CogIcon className='h-8 w-8 text-red-600 dark:text-red-400' />
-              <div className='ml-4'>
-                <h3 className='text-sm font-medium text-gray-500 dark:text-gray-400'>
-                  Pending Applications
-                </h3>
-                <p className='text-2xl font-semibold text-gray-800 dark:text-white'>
-                  {stats.pendingApplications}
-                </p>
+          <Link href='/admin/leave'>
+            <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg p-6'>
+              <div className='flex items-center'>
+                <CogIcon className='h-8 w-8 text-red-600 dark:text-red-400' />
+                <div className='ml-4'>
+                  <div className='flex items-center space-x-3'>
+                    <span>Pending Applications</span>
+                  </div>
+
+                  <p className='text-2xl font-semibold text-gray-800 dark:text-white'>
+                    {stats.pendingApplications}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Action Buttons */}
@@ -357,7 +225,7 @@ export default function AdminLeaveManagementPage() {
           </h2>
           <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
             <button
-              onClick={processMonthlyAllocation}
+              onClick={handleProcessMonthlyAllocation}
               disabled={isProcessing}
               className='flex items-center justify-center px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold rounded-md transition-colors'
             >
@@ -366,7 +234,7 @@ export default function AdminLeaveManagementPage() {
             </button>
 
             <button
-              onClick={processYearEndCarryForward}
+              onClick={handleProcessCarryForward}
               disabled={isProcessing}
               className='flex items-center justify-center px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-md transition-colors'
             >
@@ -467,6 +335,18 @@ export default function AdminLeaveManagementPage() {
             </table>
           </div>
         </div>
+
+        <ConfirmDialog
+          open={confirmDialog.open}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={() => {
+            confirmDialog.onConfirm();
+            hideConfirmDialog();
+          }}
+          onCancel={hideConfirmDialog}
+          severity={confirmDialog.severity}
+        />
       </div>
     </AppLayout>
   );

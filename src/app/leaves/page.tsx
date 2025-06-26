@@ -1,33 +1,88 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
-import { PencilIcon, PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import {
+  CalendarDaysIcon,
+  ChartBarIcon,
+  ClockIcon,
+  PencilIcon,
+  PlusIcon,
+  TrashIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AppLayout from '../AppLayout';
 
-// Interface aligned with the backend API model
+// Enhanced interfaces for the new leave management system
 interface LeaveEntry {
   id: string;
   employeeId: string;
   leaveType: 'Sick' | 'Casual' | 'Earned';
-  startDate: string; // YYYY-MM-DD
-  endDate: string; // YYYY-MM-DD
+  startDate: string;
+  endDate: string;
   reason: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'Cancelled';
-  appliedAt?: string; // ISO String from backend
-  createdAt?: string; // ISO String
-  // Calculated fields for display
+  appliedAt?: string;
+  createdAt?: string;
   noOfDays: number;
-  appliedDate: string; // YYYY-MM-DD from appliedAt
+  appliedDate: string;
 }
 
-// Aligned with API and other pages
+interface LeaveBalance {
+  totalAllocated: number;
+  totalUsed: number;
+  totalAvailable: number;
+  carryForward: number;
+}
+
+interface LeaveAccumulation {
+  id: string;
+  empId: string;
+  year: number;
+  month: number;
+  monthName: string;
+  allocatedDays: number;
+  reason: string;
+  accumulationDate: string;
+}
+
+interface LeaveTransaction {
+  id: string;
+  empId: string;
+  leaveApplicationId: string | null;
+  transactionType: string;
+  days: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  reason: string;
+  transactionDate: string;
+  leaveApplication?: {
+    id: string;
+    startDate: string;
+    endDate: string;
+    leaveType: string;
+    reason: string;
+    status: string;
+  } | null;
+}
+
+interface LeaveInfo {
+  balance: LeaveBalance | null;
+  accumulations: LeaveAccumulation[];
+  transactions: LeaveTransaction[];
+}
+
 const LEAVE_TYPES: LeaveEntry['leaveType'][] = ['Sick', 'Casual', 'Earned'];
 const CURRENT_YEAR = new Date().getFullYear();
 
-export default function LeavesPage() {
+export default function EnhancedLeavesPage() {
   const { user } = useUser();
   const [leaves, setLeaves] = useState<LeaveEntry[]>([]);
+  const [leaveInfo, setLeaveInfo] = useState<LeaveInfo>({
+    balance: null,
+    accumulations: [],
+    transactions: [],
+  });
   const [sanctionedLeavePerYear, setSanctionedLeavePerYear] = useState<number>(24);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLeave, setEditingLeave] = useState<LeaveEntry | null>(null);
@@ -40,6 +95,9 @@ export default function LeavesPage() {
   });
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [leaveToDeleteId, setLeaveToDeleteId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'applications' | 'balance' | 'history'>(
+    'applications'
+  );
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,11 +121,33 @@ export default function LeavesPage() {
       setSanctionedLeavePerYear(parseInt(configs.SANCTIONED_LEAVE_PER_YEAR || '24'));
     } catch (error) {
       console.error('Error fetching configurations:', error);
-      // Use default value if configuration fetch fails
       setSanctionedLeavePerYear(24);
     }
   }, []);
 
+  // Get employee ID from user
+  const getEmployeeId = useCallback((): string | null => {
+    if (!user) return null;
+
+    if (user.publicMetadata?.empId) {
+      return user.publicMetadata.empId as string;
+    }
+
+    // Fallback mapping for demo
+    const emailToEmpIdMap: { [key: string]: string } = {
+      'john.doe@company.com': 'EMP001',
+      'jane.smith@company.com': 'EMP002',
+      'mike.johnson@company.com': 'EMP003',
+    };
+
+    if (user.emailAddresses?.[0]?.emailAddress) {
+      return emailToEmpIdMap[user.emailAddresses[0].emailAddress] || null;
+    }
+
+    return null;
+  }, [user]);
+
+  // Fetch leave applications
   const fetchLeaves = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
@@ -85,7 +165,6 @@ export default function LeavesPage() {
         const diffTime = Math.abs(to.getTime() - from.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-        // Fix the appliedDate calculation - use appliedAt instead of createdAt
         const appliedDate = leave.appliedAt
           ? new Date(leave.appliedAt).toISOString().split('T')[0]
           : new Date().toISOString().split('T')[0];
@@ -114,12 +193,32 @@ export default function LeavesPage() {
     }
   }, [user]);
 
+  // Fetch leave balance and history
+  const fetchLeaveInfo = useCallback(async () => {
+    const empId = getEmployeeId();
+    if (!empId) return;
+
+    try {
+      const response = await fetch(`/api/leave-management?empId=${empId}&year=${CURRENT_YEAR}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch leave information.');
+      }
+      const data = await response.json();
+      setLeaveInfo(data);
+    } catch (err) {
+      console.error('Error fetching leave info:', err);
+      // Don't show error toast for leave info as it might not be initialized yet
+    }
+  }, [getEmployeeId]);
+
   useEffect(() => {
     if (user) {
       fetchConfigurations();
       fetchLeaves();
+      fetchLeaveInfo();
     }
-  }, [user, fetchLeaves, fetchConfigurations]);
+  }, [user, fetchLeaves, fetchConfigurations, fetchLeaveInfo]);
 
   useEffect(() => {
     if (toast) {
@@ -128,7 +227,20 @@ export default function LeavesPage() {
     }
   }, [toast]);
 
-  const calculateAvailableLeaves = () => {
+  // Calculate legacy available leaves (for backward compatibility with old UI components)
+  const availableLeaves = useMemo(() => {
+    if (leaveInfo.balance) {
+      return {
+        earned: Math.max(0, leaveInfo.balance.totalAvailable),
+        sick: 0,
+        casual: 0,
+        totalAvailable: Math.max(0, leaveInfo.balance.totalAvailable),
+        totalUsed: leaveInfo.balance.totalUsed,
+        totalSanctioned: leaveInfo.balance.totalAllocated,
+      };
+    }
+
+    // Fallback to old calculation if new system not initialized
     if (!user)
       return { earned: 0, sick: 0, casual: 0, totalAvailable: 0, totalUsed: 0, totalSanctioned: 0 };
 
@@ -154,9 +266,7 @@ export default function LeavesPage() {
       totalUsed: usedLeaves,
       totalSanctioned,
     };
-  };
-
-  const availableLeaves = useMemo(calculateAvailableLeaves, [leaves, user, sanctionedLeavePerYear]);
+  }, [leaves, user, sanctionedLeavePerYear, leaveInfo.balance]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -235,7 +345,8 @@ export default function LeavesPage() {
           throw new Error(errorData.error || 'Failed to delete leave.');
         }
         setToast({ message: 'Leave request deleted successfully.', type: 'success' });
-        fetchLeaves(); // Refresh list
+        fetchLeaves();
+        fetchLeaveInfo(); // Refresh leave info
       } catch (err) {
         if (err instanceof Error) {
           setToast({ message: err.message, type: 'error' });
@@ -264,7 +375,8 @@ export default function LeavesPage() {
       }
 
       setToast({ message: 'Leave request cancelled successfully.', type: 'success' });
-      fetchLeaves(); // Refresh list
+      fetchLeaves();
+      fetchLeaveInfo(); // Refresh leave info
     } catch (err) {
       if (err instanceof Error) {
         setToast({ message: err.message, type: 'error' });
@@ -292,6 +404,16 @@ export default function LeavesPage() {
       });
       return;
     }
+
+    // Check if user has sufficient leave balance
+    if (leaveInfo.balance && formData.noOfDays > leaveInfo.balance.totalAvailable) {
+      setToast({
+        message: `Insufficient leave balance. Available: ${leaveInfo.balance.totalAvailable} days, Requested: ${formData.noOfDays} days`,
+        type: 'error',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     setToast(null);
 
@@ -324,6 +446,7 @@ export default function LeavesPage() {
         type: 'success',
       });
       fetchLeaves();
+      fetchLeaveInfo(); // Refresh leave info
       closeModal();
     } catch (err) {
       if (err instanceof Error) {
@@ -379,7 +502,7 @@ export default function LeavesPage() {
 
   return (
     <AppLayout>
-      <div className='w-full max-w-6xl mx-auto p-4 md:p-6'>
+      <div className='w-full max-w-7xl mx-auto p-4 md:p-6'>
         {toast && (
           <div
             className={`fixed top-5 right-5 z-50 px-6 py-3 rounded-md shadow-lg text-white font-semibold flex items-center transition-all duration-300 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}
@@ -393,7 +516,7 @@ export default function LeavesPage() {
 
         <div className='flex justify-between items-center mb-6'>
           <h1 className='text-2xl md:text-3xl font-bold text-gray-800 dark:text-white'>
-            Manage Leaves
+            Leave Management
           </h1>
           <button
             onClick={() => openModal()}
@@ -404,10 +527,50 @@ export default function LeavesPage() {
           </button>
         </div>
 
+        {/* Tab Navigation */}
+        <div className='border-b border-gray-200 dark:border-gray-700 mb-6'>
+          <nav className='-mb-px flex space-x-8'>
+            <button
+              onClick={() => setActiveTab('applications')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'applications'
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <CalendarDaysIcon className='h-5 w-5 inline mr-2' />
+              Leave Applications
+            </button>
+            <button
+              onClick={() => setActiveTab('balance')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'balance'
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <ChartBarIcon className='h-5 w-5 inline mr-2' />
+              Leave Balance
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'history'
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <ClockIcon className='h-5 w-5 inline mr-2' />
+              Transaction History
+            </button>
+          </nav>
+        </div>
+
+        {/* Leave Balance Cards */}
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6'>
           <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg p-4'>
             <h3 className='text-sm font-medium text-gray-500 dark:text-gray-400'>
-              Total Sanctioned ({CURRENT_YEAR})
+              Total Allocated ({CURRENT_YEAR})
             </h3>
             <p className='text-2xl font-semibold text-gray-800 dark:text-white'>
               {availableLeaves.totalSanctioned}
@@ -429,123 +592,273 @@ export default function LeavesPage() {
               {availableLeaves.totalAvailable}
             </p>
           </div>
+          {leaveInfo.balance && leaveInfo.balance.carryForward > 0 && (
+            <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg p-4'>
+              <h3 className='text-sm font-medium text-gray-500 dark:text-gray-400'>
+                Carry Forward
+              </h3>
+              <p className='text-2xl font-semibold text-blue-600 dark:text-blue-400'>
+                {leaveInfo.balance.carryForward}
+              </p>
+            </div>
+          )}
         </div>
 
-        <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto'>
-          <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
-            <thead className='bg-gray-50 dark:bg-gray-700'>
-              <tr>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
-                  Leave Type
-                </th>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
-                  From Date
-                </th>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
-                  To Date
-                </th>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
-                  No. of Days
-                </th>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
-                  Reason
-                </th>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
-                  Status
-                </th>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
-                  Applied On
-                </th>
-                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className='bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700'>
-              {leaves.map(leave => (
-                <tr key={leave.id}>
-                  <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white'>
-                    {leave.leaveType}
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
-                    {new Date(leave.startDate).toLocaleDateString()}
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
-                    {new Date(leave.endDate).toLocaleDateString()}
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
-                    {leave.noOfDays}
-                  </td>
-                  <td
-                    className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 truncate max-w-xs'
-                    title={leave.reason}
-                  >
-                    {leave.reason}
-                  </td>
-                  <td
-                    className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${getStatusColor(leave.status)}`}
-                  >
-                    {getStatusDisplay(leave.status)}
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
-                    {new Date(leave.appliedDate).toLocaleDateString()}
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
-                    {(() => {
-                      const today = new Date();
-                      const leaveStartDate = new Date(leave.startDate);
-                      const canModify = leave.status === 'PENDING' && leaveStartDate > today;
-
-                      if (canModify) {
-                        return (
-                          <div className='flex space-x-2'>
-                            <button
-                              onClick={() => openModal(leave)}
-                              className='text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-200'
-                              title='Edit Leave'
-                            >
-                              <PencilIcon className='h-5 w-5' />
-                            </button>
-                            <button
-                              onClick={() => cancelLeave(leave.id)}
-                              className='text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-200'
-                              disabled={isSubmitting}
-                              title='Cancel Leave'
-                            >
-                              <XMarkIcon className='h-5 w-5' />
-                            </button>
-                            <button
-                              onClick={() => openDeleteConfirm(leave.id)}
-                              className='text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-200'
-                              title='Delete Leave'
-                            >
-                              <TrashIcon className='h-5 w-5' />
-                            </button>
-                          </div>
-                        );
-                      } else if (leave.status === 'PENDING' && leaveStartDate <= today) {
-                        return <span className='text-gray-400 text-sm'>Leave has started</span>;
-                      } else {
-                        return <span className='text-gray-400 text-sm'>No actions available</span>;
-                      }
-                    })()}
-                  </td>
-                </tr>
-              ))}
-              {leaves.length === 0 && !isLoading && (
+        {/* Tab Content */}
+        {activeTab === 'applications' && (
+          <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto'>
+            <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
+              <thead className='bg-gray-50 dark:bg-gray-700'>
                 <tr>
-                  <td
-                    colSpan={8}
-                    className='px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-300'
-                  >
-                    No leave records found.
-                  </td>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                    Leave Type
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                    From Date
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                    To Date
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                    No. of Days
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                    Reason
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                    Status
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                    Applied On
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                    Actions
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className='bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700'>
+                {leaves.map(leave => (
+                  <tr key={leave.id}>
+                    <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white'>
+                      {leave.leaveType}
+                    </td>
+                    <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
+                      {new Date(leave.startDate).toLocaleDateString()}
+                    </td>
+                    <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
+                      {new Date(leave.endDate).toLocaleDateString()}
+                    </td>
+                    <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
+                      {leave.noOfDays}
+                    </td>
+                    <td
+                      className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 truncate max-w-xs'
+                      title={leave.reason}
+                    >
+                      {leave.reason}
+                    </td>
+                    <td
+                      className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${getStatusColor(leave.status)}`}
+                    >
+                      {getStatusDisplay(leave.status)}
+                    </td>
+                    <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
+                      {new Date(leave.appliedDate).toLocaleDateString()}
+                    </td>
+                    <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
+                      {(() => {
+                        const today = new Date();
+                        const leaveStartDate = new Date(leave.startDate);
+                        const canModify = leave.status === 'PENDING' && leaveStartDate > today;
 
+                        if (canModify) {
+                          return (
+                            <div className='flex space-x-2'>
+                              <button
+                                onClick={() => openModal(leave)}
+                                className='text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-200'
+                                title='Edit Leave'
+                              >
+                                <PencilIcon className='h-5 w-5' />
+                              </button>
+                              <button
+                                onClick={() => cancelLeave(leave.id)}
+                                className='text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-200'
+                                disabled={isSubmitting}
+                                title='Cancel Leave'
+                              >
+                                <XMarkIcon className='h-5 w-5' />
+                              </button>
+                              <button
+                                onClick={() => openDeleteConfirm(leave.id)}
+                                className='text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-200'
+                                title='Delete Leave'
+                              >
+                                <TrashIcon className='h-5 w-5' />
+                              </button>
+                            </div>
+                          );
+                        } else if (leave.status === 'PENDING' && leaveStartDate <= today) {
+                          return <span className='text-gray-400 text-sm'>Leave has started</span>;
+                        } else {
+                          return (
+                            <span className='text-gray-400 text-sm'>No actions available</span>
+                          );
+                        }
+                      })()}
+                    </td>
+                  </tr>
+                ))}
+                {leaves.length === 0 && !isLoading && (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className='px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-300'
+                    >
+                      No leave records found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === 'balance' && (
+          <div className='space-y-6'>
+            {/* Leave Accumulation History */}
+            <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg p-6'>
+              <h3 className='text-lg font-semibold text-gray-800 dark:text-white mb-4'>
+                Leave Accumulation History ({CURRENT_YEAR})
+              </h3>
+              {leaveInfo.accumulations.length > 0 ? (
+                <div className='overflow-x-auto'>
+                  <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
+                    <thead className='bg-gray-50 dark:bg-gray-700'>
+                      <tr>
+                        <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                          Month
+                        </th>
+                        <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                          Allocated Days
+                        </th>
+                        <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                          Reason
+                        </th>
+                        <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                          Allocation Date
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className='bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700'>
+                      {leaveInfo.accumulations.map(accumulation => (
+                        <tr key={accumulation.id}>
+                          <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white'>
+                            {accumulation.monthName}
+                          </td>
+                          <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
+                            {accumulation.allocatedDays}
+                          </td>
+                          <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
+                            {accumulation.reason.replace(/_/g, ' ')}
+                          </td>
+                          <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
+                            {new Date(accumulation.accumulationDate).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className='text-gray-500 dark:text-gray-400'>No accumulation history found.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'history' && (
+          <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg p-6'>
+            <h3 className='text-lg font-semibold text-gray-800 dark:text-white mb-4'>
+              Leave Transaction History ({CURRENT_YEAR})
+            </h3>
+            {leaveInfo.transactions.length > 0 ? (
+              <div className='overflow-x-auto'>
+                <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
+                  <thead className='bg-gray-50 dark:bg-gray-700'>
+                    <tr>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                        Date
+                      </th>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                        Type
+                      </th>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                        Days
+                      </th>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                        Balance Before
+                      </th>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                        Balance After
+                      </th>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'>
+                        Reason
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className='bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700'>
+                    {leaveInfo.transactions.map(transaction => (
+                      <tr key={transaction.id}>
+                        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white'>
+                          {new Date(transaction.transactionDate).toLocaleDateString()}
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap text-sm'>
+                          <span
+                            className={`px-2 py-1 text-xs font-semibold rounded ${
+                              transaction.transactionType === 'CREDIT'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
+                                : transaction.transactionType === 'DEBIT'
+                                  ? 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
+                                  : 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'
+                            }`}
+                          >
+                            {transaction.transactionType}
+                          </span>
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap text-sm'>
+                          <span
+                            className={
+                              transaction.days > 0
+                                ? 'text-green-600 dark:text-green-400'
+                                : 'text-red-600 dark:text-red-400'
+                            }
+                          >
+                            {transaction.days > 0 ? '+' : ''}
+                            {transaction.days}
+                          </span>
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
+                          {transaction.balanceBefore}
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
+                          {transaction.balanceAfter}
+                        </td>
+                        <td className='px-6 py-4 text-sm text-gray-500 dark:text-gray-300 max-w-xs truncate'>
+                          {transaction.reason}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className='text-gray-500 dark:text-gray-400'>No transaction history found.</p>
+            )}
+          </div>
+        )}
+
+        {/* Leave Application Modal */}
         {isModalOpen && (
           <div className='fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40 flex items-center justify-center'>
             <div className='relative bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md mx-auto'>
@@ -627,6 +940,11 @@ export default function LeavesPage() {
                     readOnly
                     className='mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none sm:text-sm bg-gray-100 dark:bg-gray-700 dark:text-white'
                   />
+                  {leaveInfo.balance && (
+                    <p className='mt-1 text-sm text-gray-500 dark:text-gray-400'>
+                      Available balance: {leaveInfo.balance.totalAvailable} days
+                    </p>
+                  )}
                 </div>
                 <div className='mb-6'>
                   <label
@@ -670,6 +988,7 @@ export default function LeavesPage() {
           </div>
         )}
 
+        {/* Delete Confirmation Modal */}
         {isDeleteConfirmOpen && (
           <div className='fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center'>
             <div className='relative bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md mx-auto'>

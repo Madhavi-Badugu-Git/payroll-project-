@@ -1,5 +1,9 @@
 'use client';
 
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
+import { useEmployees } from '@/hooks/useEmployees';
+import { Employee, EmployeeFormData, ImportEmployeeData } from '@/types';
 import {
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
@@ -10,81 +14,27 @@ import {
 } from '@heroicons/react/24/outline';
 import { saveAs } from 'file-saver';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { toast } from 'react-toastify';
 import * as XLSX from 'xlsx';
 import AppLayout from '../AppLayout';
 
-interface Employee {
-  id: string;
-  empId: string;
-  firstName: string;
-  lastName: string;
-  officeEmail: string;
-  personalEmail: string | null;
-  mobileNo: string;
-  dateOfBirth: string | null;
-  salary: number | null;
-  joiningDate: string;
-  exitDate: string | null;
-  status: string;
-  currentDesignation: string;
-  employmentType: string;
-  stream: string;
-  githubUserId: string | null;
-  linkedinId: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface EmployeeFormData {
-  firstName: string;
-  lastName: string;
-  officeEmail: string;
-  personalEmail: string;
-  mobileNo: string;
-  dateOfBirth: string;
-  salary: string;
-  joiningDate: string;
-  exitDate: string;
-  status: string;
-  currentDesignation: string;
-  employmentType: string;
-  stream: string;
-  githubUserId: string;
-  linkedinId: string;
-}
-
-interface ImportEmployeeData {
-  'Employee ID'?: string;
-  'First Name': string;
-  'Last Name': string;
-  'Office Email': string;
-  'Personal Email'?: string;
-  'Mobile Number': string;
-  'Date of Birth'?: string;
-  Salary?: string | number;
-  Designation: string;
-  'Employment Type': string;
-  Stream: string;
-  Status: string;
-  'Joining Date': string;
-  'Exit Date'?: string;
-  'GitHub User ID'?: string;
-  'LinkedIn ID'?: string;
-}
-
 const initialFormData: EmployeeFormData = {
+  empId: '',
   firstName: '',
   lastName: '',
+  email: '',
   officeEmail: '',
   personalEmail: '',
   mobileNo: '',
+  department: '',
+  designation: '',
+  currentDesignation: '',
   dateOfBirth: '',
   salary: '',
   joiningDate: '',
   exitDate: '',
   status: 'Active',
-  currentDesignation: '',
   employmentType: 'Full-time',
   stream: '',
   githubUserId: '',
@@ -122,50 +72,32 @@ const designationOptions = [
 
 export default function EmployeesPage() {
   const router = useRouter();
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const {
+    employees,
+    isLoading,
+    error,
+    totalCount: _totalCount,
+    createEmployee,
+    updateEmployee,
+    deleteEmployee,
+    importEmployees,
+    clearError,
+  } = useEmployees();
+
+  const { confirmDialog, showConfirmDialog, hideConfirmDialog } = useConfirmDialog();
+
   const [_currentPage, _setCurrentPage] = useState(1);
   const [_itemsPerPage, _setItemsPerPage] = useState(20);
-  const [_totalCount, setTotalCount] = useState(0);
   const [_searchTerm, _setSearchTerm] = useState('');
   const [_debouncedSearchTerm, _setDebouncedSearchTerm] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const [deletingEmployee, setDeletingEmployee] = useState<Employee | null>(null);
   const [formData, setFormData] = useState<EmployeeFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [showToast, setShowToast] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<ImportEmployeeData[]>([]);
   const [isImporting, setIsImporting] = useState(false);
-
-  // Fetch employees
-  const fetchEmployees = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/employees');
-      if (!response.ok) {
-        throw new Error('Failed to fetch employees');
-      }
-      const data = await response.json();
-      setEmployees(data.employees);
-      setTotalCount(data.totalCount);
-    } catch (err) {
-      console.error('Error fetching employees:', err);
-      setError('Failed to load employees');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
 
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -187,17 +119,21 @@ export default function EmployeesPage() {
   const handleEditEmployee = (employee: Employee) => {
     setEditingEmployee(employee);
     setFormData({
+      empId: employee.empId,
       firstName: employee.firstName,
       lastName: employee.lastName,
+      email: employee.email || employee.officeEmail,
       officeEmail: employee.officeEmail,
       personalEmail: employee.personalEmail || '',
       mobileNo: employee.mobileNo,
+      department: employee.department || employee.stream,
+      designation: employee.designation || employee.currentDesignation,
+      currentDesignation: employee.currentDesignation,
       dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.split('T')[0] : '',
       salary: employee.salary ? employee.salary.toString() : '',
       joiningDate: employee.joiningDate.split('T')[0], // Format date for input
       exitDate: employee.exitDate ? employee.exitDate.split('T')[0] : '',
       status: employee.status,
-      currentDesignation: employee.currentDesignation,
       employmentType: employee.employmentType,
       stream: employee.stream,
       githubUserId: employee.githubUserId || '',
@@ -210,32 +146,22 @@ export default function EmployeesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setError(null);
 
     try {
-      const url = editingEmployee ? `/api/employees/${editingEmployee.id}` : '/api/employees';
-      const method = editingEmployee ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save employee');
+      let success = false;
+      if (editingEmployee) {
+        success = await updateEmployee(editingEmployee.id, formData);
+      } else {
+        success = await createEmployee(formData);
       }
 
-      await fetchEmployees();
-      setIsModalOpen(false);
-      setFormData(initialFormData);
-      setEditingEmployee(null);
+      if (success) {
+        setIsModalOpen(false);
+        setFormData(initialFormData);
+        setEditingEmployee(null);
+      }
     } catch (err) {
       console.error('Error saving employee:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save employee');
     } finally {
       setIsSubmitting(false);
     }
@@ -243,38 +169,29 @@ export default function EmployeesPage() {
 
   // Handle delete confirmation
   const handleDeleteClick = (employee: Employee) => {
-    setDeletingEmployee(employee);
-    setIsDeleteModalOpen(true);
+    showConfirmDialog({
+      title: 'Delete Employee',
+      message: `Are you sure you want to delete employee ${employee.firstName} ${employee.lastName}? This action cannot be undone.`,
+      severity: 'error',
+      onConfirm: () => confirmDeleteEmployee(employee),
+    });
   };
 
   // Handle delete employee
-  const handleDeleteEmployee = async () => {
-    if (!deletingEmployee) return;
+  const confirmDeleteEmployee = async (employee: Employee) => {
+    // Close the confirmation dialog
+    hideConfirmDialog();
 
     setIsSubmitting(true);
-    setError(null);
 
     try {
-      const response = await fetch(`/api/employees/${deletingEmployee.id}`, {
-        method: 'DELETE',
-      });
+      const success = await deleteEmployee(employee.id);
 
-      if (!response.ok) {
-        throw new Error('Failed to delete employee');
+      if (success) {
+        // Success message is handled by the hook
       }
-
-      await fetchEmployees();
-      setIsDeleteModalOpen(false);
-      setDeletingEmployee(null);
-      setToastMessage('Employee deleted successfully!');
-      setShowToast(true);
-      setTimeout(() => {
-        setShowToast(false);
-        setToastMessage(null);
-      }, 3000); // Hide after 3 seconds
     } catch (err) {
       console.error('Error deleting employee:', err);
-      setError('Failed to delete employee');
     } finally {
       setIsSubmitting(false);
     }
@@ -285,17 +202,7 @@ export default function EmployeesPage() {
     setIsModalOpen(false);
     setFormData(initialFormData);
     setEditingEmployee(null);
-    setError(null);
-    setToastMessage(null);
-    setShowToast(false);
-  };
-
-  const closeDeleteModal = () => {
-    setIsDeleteModalOpen(false);
-    setDeletingEmployee(null);
-    setError(null);
-    setToastMessage(null);
-    setShowToast(false);
+    clearError();
   };
 
   // Handle Excel export
@@ -354,15 +261,10 @@ export default function EmployeesPage() {
       saveAs(blob, fileName);
 
       // Show success message
-      setToastMessage('Employee data exported successfully!');
-      setShowToast(true);
-      setTimeout(() => {
-        setShowToast(false);
-        setToastMessage(null);
-      }, 3000);
+      toast.success('Employee data exported successfully!');
     } catch (error) {
       console.error('Error exporting to Excel:', error);
-      setError('Failed to export employee data');
+      toast.error('Failed to export employee data');
     }
   };
 
@@ -387,7 +289,7 @@ export default function EmployeesPage() {
       setImportPreview(jsonData.slice(0, 10)); // Show only first 10 rows for preview
     } catch (error) {
       console.error('Error reading Excel file:', error);
-      setError('Failed to read Excel file');
+      toast.error('Failed to read Excel file');
     }
   };
 
@@ -396,7 +298,6 @@ export default function EmployeesPage() {
     if (!importFile) return;
 
     setIsImporting(true);
-    setError(null);
 
     try {
       const data = await importFile.arrayBuffer();
@@ -405,104 +306,7 @@ export default function EmployeesPage() {
       const worksheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json(worksheet) as ImportEmployeeData[];
 
-      let successCount = 0;
-      let errorCount = 0;
-      const errors: string[] = [];
-
-      for (const [index, row] of jsonData.entries()) {
-        try {
-          // Validate required fields
-          if (
-            !row['First Name'] ||
-            !row['Last Name'] ||
-            !row['Office Email'] ||
-            !row['Mobile Number'] ||
-            !row['Joining Date'] ||
-            !row['Status'] ||
-            !row['Designation'] ||
-            !row['Employment Type'] ||
-            !row['Stream']
-          ) {
-            throw new Error(`Row ${index + 2}: Missing required fields`);
-          }
-
-          // Convert date format
-          const joiningDate = new Date(row['Joining Date']);
-          if (isNaN(joiningDate.getTime())) {
-            throw new Error(`Row ${index + 2}: Invalid joining date format`);
-          }
-
-          let exitDate = null;
-          if (row['Exit Date']) {
-            exitDate = new Date(row['Exit Date']);
-            if (isNaN(exitDate.getTime())) {
-              throw new Error(`Row ${index + 2}: Invalid exit date format`);
-            }
-          }
-
-          let dateOfBirth = null;
-          if (row['Date of Birth']) {
-            dateOfBirth = new Date(row['Date of Birth']);
-            if (isNaN(dateOfBirth.getTime())) {
-              throw new Error(`Row ${index + 2}: Invalid date of birth format`);
-            }
-          }
-
-          // Prepare employee data
-          const employeeData = {
-            firstName: row['First Name'],
-            lastName: row['Last Name'],
-            officeEmail: row['Office Email'],
-            personalEmail: row['Personal Email'] || '',
-            mobileNo: row['Mobile Number'],
-            dateOfBirth: dateOfBirth ? dateOfBirth.toISOString().split('T')[0] : '',
-            salary: row['Salary'] ? row['Salary'].toString() : '',
-            joiningDate: joiningDate.toISOString().split('T')[0],
-            exitDate: exitDate ? exitDate.toISOString().split('T')[0] : '',
-            status: row['Status'],
-            currentDesignation: row['Designation'],
-            employmentType: row['Employment Type'],
-            stream: row['Stream'],
-            githubUserId: row['GitHub User ID'] || '',
-            linkedinId: row['LinkedIn ID'] || '',
-          };
-
-          // Create employee via API
-          const response = await fetch('/api/employees', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(employeeData),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`Row ${index + 2}: ${errorData.error || 'Failed to create employee'}`);
-          }
-
-          successCount++;
-        } catch (error) {
-          errorCount++;
-          errors.push(error instanceof Error ? error.message : `Row ${index + 2}: Unknown error`);
-        }
-      }
-
-      // Show results
-      if (successCount > 0) {
-        await fetchEmployees(); // Refresh the employee list
-        setToastMessage(`Successfully imported ${successCount} employees`);
-        setShowToast(true);
-        setTimeout(() => {
-          setShowToast(false);
-          setToastMessage(null);
-        }, 3000);
-      }
-
-      if (errorCount > 0) {
-        const errorMessage = `${errorCount} employees failed to import:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? '\n...and more' : ''}`;
-        setError(errorMessage);
-      }
+      await importEmployees(jsonData);
 
       // Close import modal
       setIsImportModalOpen(false);
@@ -510,7 +314,7 @@ export default function EmployeesPage() {
       setImportPreview([]);
     } catch (error) {
       console.error('Error importing employees:', error);
-      setError('Failed to import employees');
+      toast.error('Failed to import employees');
     } finally {
       setIsImporting(false);
     }
@@ -521,7 +325,7 @@ export default function EmployeesPage() {
     setIsImportModalOpen(true);
     setImportFile(null);
     setImportPreview([]);
-    setError(null);
+    clearError();
   };
 
   // Close import modal
@@ -529,7 +333,7 @@ export default function EmployeesPage() {
     setIsImportModalOpen(false);
     setImportFile(null);
     setImportPreview([]);
-    setError(null);
+    clearError();
   };
 
   // Get status color class
@@ -567,7 +371,7 @@ export default function EmployeesPage() {
           <h1 className='text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 dark:text-white'>
             Employee Management
           </h1>
-          <div className='flex flex-col sm:flex-row gap-2 sm:gap-3'>
+          <div className='flex flex-row sm:flex-row gap-2 sm:gap-3'>
             <button
               onClick={handleExportToExcel}
               className='bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md flex items-center transition-colors w-full sm:w-auto justify-center sm:justify-start order-3 sm:order-1'
@@ -591,24 +395,6 @@ export default function EmployeesPage() {
             </button>
           </div>
         </div>
-
-        {/* Toast Notification */}
-        {showToast && (
-          <div className='fixed top-4 right-4 left-4 sm:left-auto sm:right-5 bg-green-500 text-white py-3 px-4 rounded-md shadow-lg z-50 mx-auto sm:mx-0 max-w-sm'>
-            <div className='flex justify-between items-center'>
-              <span className='text-sm'>{toastMessage}</span>
-              <button
-                onClick={() => {
-                  setShowToast(false);
-                  setToastMessage(null);
-                }}
-                className='ml-4 text-green-100 hover:text-white flex-shrink-0'
-              >
-                <XMarkIcon className='h-5 w-5' />
-              </button>
-            </div>
-          </div>
-        )}
 
         {error && (
           <div className='mb-4 p-4 bg-red-100 dark:bg-red-900 border border-red-400 text-red-700 dark:text-red-300 rounded'>
@@ -1089,50 +875,17 @@ export default function EmployeesPage() {
           </div>
         )}
 
-        {/* Delete Confirmation Modal */}
-        {isDeleteModalOpen && deletingEmployee && (
-          <div className='fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50'>
-            <div className='relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800'>
-              <div className='flex justify-between items-center mb-4'>
-                <h3 className='text-lg font-medium text-gray-900 dark:text-white'>
-                  Confirm Delete
-                </h3>
-                <button
-                  onClick={closeDeleteModal}
-                  className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-                >
-                  <XMarkIcon className='h-6 w-6' />
-                </button>
-              </div>
-
-              <div className='mb-4'>
-                <p className='text-sm text-gray-600 dark:text-gray-300'>
-                  Are you sure you want to delete employee{' '}
-                  <strong>
-                    {deletingEmployee.firstName} {deletingEmployee.lastName}
-                  </strong>
-                  ? This action cannot be undone.
-                </p>
-              </div>
-
-              <div className='flex justify-end space-x-3'>
-                <button
-                  onClick={closeDeleteModal}
-                  className='px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-md'
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteEmployee}
-                  disabled={isSubmitting}
-                  className='px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed'
-                >
-                  {isSubmitting ? 'Deleting...' : 'Delete'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Confirmation Dialog */}
+        <ConfirmDialog
+          open={confirmDialog.open}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText='Delete'
+          cancelText='Cancel'
+          severity={confirmDialog.severity}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={hideConfirmDialog}
+        />
 
         {/* Import Modal */}
         {isImportModalOpen && (

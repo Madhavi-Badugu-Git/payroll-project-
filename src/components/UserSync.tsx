@@ -1,36 +1,22 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
-import { useEffect } from 'react';
+import { useUserSync } from '@/hooks/useUserSync';
 
 export default function UserSync() {
-  const { user, isLoaded } = useUser();
+  const { isLoading, isSynced, error } = useUserSync();
 
-  useEffect(() => {
-    const syncUser = async () => {
-      if (isLoaded && user) {
-        try {
-          const response = await fetch('/api/sync-user', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ userId: user.id }),
-          });
-
-          if (!response.ok) {
-            console.error('Failed to sync user data:', response.statusText);
-          } else {
-            console.log('User data synced successfully');
-          }
-        } catch (error) {
-          console.error('Error syncing user to database:', error);
-        }
-      }
-    };
-
-    syncUser();
-  }, [user, isLoaded]);
+  // Optional: You can add some debug logging or UI indicators
+  if (process.env.NODE_ENV === 'development') {
+    if (isLoading) {
+      console.log('UserSync: Syncing user...');
+    }
+    if (isSynced) {
+      console.log('UserSync: User synced successfully');
+    }
+    if (error) {
+      console.log('UserSync: Error -', error);
+    }
+  }
 
   return null; // This component doesn't render anything
 }

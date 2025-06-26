@@ -1,10 +1,8 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'; // Added useCallback
-import Calendar from 'react-calendar';
-import './react-calendar.css';
-// import holidaysData from './holidays.json'; // Removed mock data import
+import { useHolidays } from '@/hooks/useHolidays';
 import { hasAdminRole } from '@/lib/userutils';
+import { Holiday } from '@/types';
 import { useUser } from '@clerk/nextjs';
 import {
   Add as AddIcon,
@@ -37,15 +35,12 @@ import {
 } from '@mui/material';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import Calendar from 'react-calendar';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import AppLayout from '../AppLayout';
-
-interface Holiday {
-  id: string; // Added id
-  date: string; // YYYY-MM-DD or ISO string
-  name: string;
-}
+import './react-calendar.css';
 
 // Helper function to format date to YYYY-MM-DD for API and input
 const toYYYYMMDD = (date: Date | string): string => {
@@ -72,11 +67,12 @@ const formatDateAndGetDay = (dateString: string): { formattedDate: string; dayNa
 
 export default function HolidaysPage() {
   const { user } = useUser();
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
+
+  // Use custom hook for holidays data management
+  const { holidays, isLoading, error, createHoliday, updateHoliday, deleteHoliday } = useHolidays();
+
   const [holidayDatesSet, setHolidayDatesSet] = useState(new Set<string>());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedDateInfo, setSelectedDateInfo] = useState<string | null>(null);
 
   const [showModal, setShowModal] = useState(false);
@@ -87,6 +83,11 @@ export default function HolidaysPage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [holidayToDelete, setHolidayToDelete] = useState<Holiday | null>(null);
   const isAdmin = useMemo(() => (user ? hasAdminRole(user) : false), [user]);
+
+  // Update holiday dates set when holidays change
+  useEffect(() => {
+    setHolidayDatesSet(new Set(holidays.map(h => h.date)));
+  }, [holidays]);
 
   const downloadHolidaysPDF = useCallback(async () => {
     try {
@@ -219,31 +220,6 @@ export default function HolidaysPage() {
     return 'Regular Working Day';
   };
 
-  const fetchHolidays = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/holidays');
-      if (!response.ok) {
-        throw new Error(`Failed to fetch holidays: ${response.statusText}`);
-      }
-      const data: Holiday[] = await response.json();
-      const formattedHolidays = data.map(h => ({ ...h, date: toYYYYMMDD(h.date) }));
-      setHolidays(formattedHolidays);
-      setHolidayDatesSet(new Set(formattedHolidays.map(h => h.date)));
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(message);
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchHolidays();
-  }, [fetchHolidays]);
-
   // Debug holidays data when it changes
   useEffect(() => {
     console.log('Holidays loaded:', holidays.length, 'entries');
@@ -283,21 +259,10 @@ export default function HolidaysPage() {
 
   const confirmDeleteHoliday = async () => {
     if (!holidayToDelete) return;
-    try {
-      const response = await fetch(`/api/holidays/${holidayToDelete.id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete holiday');
-      }
+    const success = await deleteHoliday(holidayToDelete.id);
+    if (success) {
       setShowConfirmDialog(false);
       setHolidayToDelete(null);
-      toast.success('Holiday deleted successfully!');
-      fetchHolidays(); // Refresh list
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(message);
-      console.error(err);
-      toast.error(`Error: ${message}`);
     }
   };
 
@@ -313,30 +278,18 @@ export default function HolidaysPage() {
       return;
     }
 
-    const method = isEditing ? 'PUT' : 'POST';
-    const url =
-      isEditing && currentHoliday?.id ? `/api/holidays/${currentHoliday.id}` : '/api/holidays';
+    let success = false;
+    if (isEditing && currentHoliday?.id) {
+      success = await updateHoliday(currentHoliday.id, { name: holidayName, date: holidayDate });
+    } else {
+      success = await createHoliday({ name: holidayName, date: holidayDate });
+    }
 
-    try {
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: holidayName, date: holidayDate }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.error || (isEditing ? 'Failed to update holiday' : 'Failed to create holiday')
-        );
-      }
+    if (success) {
       setShowModal(false);
-      toast.success(isEditing ? 'Holiday updated successfully!' : 'Holiday created successfully!');
-      fetchHolidays(); // Refresh list
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(message);
-      console.error(err);
-      toast.error(`Error: ${message}`);
+      // Reset form
+      setHolidayName('');
+      setHolidayDate(toYYYYMMDD(new Date()));
     }
   };
 
@@ -399,7 +352,40 @@ export default function HolidaysPage() {
         theme='light'
       />
 
-      <Box sx={{ width: '100%', maxWidth: '1400px', mx: 'auto', p: { xs: 2, md: 3 } }}>
+      <Box
+        sx={{
+          width: '100%',
+          maxWidth: '1400px',
+          mx: 'auto',
+          p: { xs: 2, md: 3 },
+          position: 'relative',
+        }}
+      >
+        {/* Loading Overlay */}
+        {isLoading && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+            }}
+          >
+            <Box textAlign='center'>
+              <CircularProgress size={60} />
+              <Typography variant='body1' sx={{ mt: 2 }}>
+                Loading holidays...
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
         <Box display='flex' justifyContent='space-between' alignItems='center' mb={3}>
           <Typography variant='h4' component='h1' fontWeight='bold' color='primary'>
             Indian Holidays 2025

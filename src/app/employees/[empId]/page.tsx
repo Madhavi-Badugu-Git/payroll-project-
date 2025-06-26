@@ -1,6 +1,10 @@
 'use client';
 
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
+import { useEmployees } from '@/hooks/useEmployees';
 import { hasAdminRole } from '@/lib/userutils';
+import { Promotion } from '@/types';
 import { useUser } from '@clerk/nextjs';
 import {
   ArrowLeftIcon,
@@ -11,6 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'react-toastify';
 import AppLayout from '../../AppLayout';
 
 // Designations enum/constants
@@ -31,50 +36,17 @@ const DESIGNATIONS = {
 
 const designationOptions = Object.values(DESIGNATIONS);
 
-interface Employee {
-  id: string;
-  empId: string;
-  firstName: string;
-  lastName: string;
-  officeEmail: string;
-  personalEmail: string | null;
-  mobileNo: string;
-  dateOfBirth: string | null;
-  salary: number | null;
-  joiningDate: string;
-  exitDate: string | null;
-  status: string;
-  currentDesignation: string;
-  employmentType: string;
-  stream: string;
-  githubUserId: string | null;
-  linkedinId: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Promotion {
-  id: string;
-  empId: string;
-  salary: number;
-  revisionDate: string;
-  currentPosition: string;
-  previousPosition: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export default function EmployeeDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useUser();
   const isAdmin = useMemo(() => (user ? hasAdminRole(user) : false), [user]);
 
-  const [employee, setEmployee] = useState<Employee | null>(null);
+  const { employee, isLoading, error, fetchEmployee } = useEmployees();
+  const { confirmDialog, showConfirmDialog, hideConfirmDialog } = useConfirmDialog();
+
   const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPromotions, setIsLoadingPromotions] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Promotion CRUD states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -114,9 +86,18 @@ export default function EmployeeDetailsPage() {
   };
 
   const handleDeletePromotion = async (promotionId: string) => {
-    if (!confirm('Are you sure you want to delete this promotion record?')) {
-      return;
-    }
+    showConfirmDialog({
+      title: 'Delete Promotion Record',
+      message:
+        'Are you sure you want to delete this promotion record? This action cannot be undone.',
+      severity: 'error',
+      onConfirm: () => confirmDeletePromotion(promotionId),
+    });
+  };
+
+  const confirmDeletePromotion = async (promotionId: string) => {
+    // Close the confirmation dialog
+    hideConfirmDialog();
 
     try {
       const response = await fetch(`/api/promotions/${promotionId}`, {
@@ -128,10 +109,11 @@ export default function EmployeeDetailsPage() {
       }
 
       // Refresh both promotions list and employee data
-      await Promise.all([fetchPromotions(), fetchEmployee()]);
+      await Promise.all([fetchPromotions(), fetchEmployee(empId)]);
+      toast.success('Promotion record deleted successfully!');
     } catch (err) {
       console.error('Error deleting promotion:', err);
-      alert('Failed to delete promotion. Please try again.');
+      toast.error('Failed to delete promotion. Please try again.');
     }
   };
 
@@ -166,7 +148,7 @@ export default function EmployeeDetailsPage() {
       setEditingPromotion(null);
 
       // Refresh both promotions list and employee data
-      await Promise.all([fetchPromotions(), fetchEmployee()]);
+      await Promise.all([fetchPromotions(), fetchEmployee(empId)]);
 
       // Reset form
       setFormData({
@@ -175,9 +157,13 @@ export default function EmployeeDetailsPage() {
         currentPosition: '',
         previousPosition: '',
       });
+
+      toast.success(
+        editingPromotion ? 'Promotion updated successfully!' : 'Promotion added successfully!'
+      );
     } catch (err) {
       console.error('Error saving promotion:', err);
-      alert(err instanceof Error ? err.message : 'Failed to save promotion');
+      toast.error(err instanceof Error ? err.message : 'Failed to save promotion');
     } finally {
       setIsSubmitting(false);
     }
@@ -190,35 +176,6 @@ export default function EmployeeDetailsPage() {
       [name]: value,
     }));
   };
-
-  const fetchEmployee = useCallback(async () => {
-    if (!empId) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Optimized: fetch employees with search filter for the specific empId
-      const response = await fetch(`/api/employees?search=${encodeURIComponent(empId)}&limit=50`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch employee data');
-      }
-
-      const data = await response.json();
-      const foundEmployee = data.employees.find((emp: Employee) => emp.empId === empId);
-
-      if (!foundEmployee) {
-        throw new Error('Employee not found');
-      }
-
-      setEmployee(foundEmployee);
-    } catch (err) {
-      console.error('Error fetching employee:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load employee details');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [empId]);
 
   const fetchPromotions = useCallback(async () => {
     if (!empId) return;
@@ -241,18 +198,14 @@ export default function EmployeeDetailsPage() {
   }, [empId]);
 
   useEffect(() => {
-    fetchEmployee();
-  }, [fetchEmployee]);
+    if (empId) {
+      fetchEmployee(empId);
+    }
+  }, [empId, fetchEmployee]);
 
   useEffect(() => {
     fetchPromotions();
   }, [fetchPromotions]);
-
-  const handleEdit = () => {
-    router.push('/employees');
-    // Note: Direct edit functionality would require more complex state management
-    // For now, users can edit from the main employees page
-  };
 
   const getStatusColorClass = (status: string) => {
     switch (status) {
@@ -298,8 +251,8 @@ export default function EmployeeDetailsPage() {
     <AppLayout>
       <div className='w-full max-w-4xl mx-auto p-2 sm:p-4 md:p-6'>
         {/* Header */}
-        <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4'>
-          <div className='flex items-center space-x-4'>
+        <div className='flex flex-col sm:flex-row sm:justify-between mb-6'>
+          <div className='flex'>
             <button
               onClick={() => router.push('/employees')}
               className='p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md'
@@ -308,18 +261,10 @@ export default function EmployeeDetailsPage() {
             </button>
             <div>
               <h1 className='text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white'>
-                {employee.firstName} {employee.lastName}
+                {employee.firstName} {employee.lastName} - {employee.empId}
               </h1>
-              <p className='text-lg text-gray-600 dark:text-gray-300'>{employee.empId}</p>
             </div>
           </div>
-          <button
-            onClick={handleEdit}
-            className='bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md flex items-center transition-colors'
-          >
-            <PencilIcon className='h-5 w-5 mr-2' />
-            Edit Employee
-          </button>
         </div>
 
         {/* Employee Details */}
@@ -859,6 +804,18 @@ export default function EmployeeDetailsPage() {
             </div>
           </div>
         )}
+
+        {/* Confirmation Dialog */}
+        <ConfirmDialog
+          open={confirmDialog.open}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText='Delete'
+          cancelText='Cancel'
+          severity={confirmDialog.severity}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={hideConfirmDialog}
+        />
       </div>
     </AppLayout>
   );

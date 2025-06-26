@@ -1,5 +1,5 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { edgeLogHttp } from '@/lib/edge-logger';
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
 // Define routes that should be public
 const isPublicRoute = createRouteMatcher([

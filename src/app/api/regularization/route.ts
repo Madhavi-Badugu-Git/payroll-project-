@@ -12,6 +12,14 @@ export async function POST(req: NextRequest) {
 
     const { attendanceId, date, reason, requestedCheckIn, requestedCheckOut } = await req.json();
 
+    console.log('Regularization request payload:', {
+      attendanceId,
+      date,
+      reason,
+      requestedCheckIn,
+      requestedCheckOut,
+    });
+
     if (!attendanceId || !date || !reason) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -24,14 +32,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Attendance record not found' }, { status: 404 });
     }
 
-    // Check if a regularization request already exists for this attendance record
-    const existingRequest = await prisma.attendanceRegularization.findFirst({
-      where: { attendanceId: attendanceId },
+    // Find the Employee record that corresponds to the attendance employeeId
+    // First try to find by empId (employee number like "EMP001")
+    let employee = await prisma.employee.findFirst({
+      where: { empId: attendance.employeeId },
     });
 
-    if (existingRequest) {
+    // If not found and the employeeId looks like a Clerk user ID, try to find by user relationship
+    if (!employee && attendance.employeeId.startsWith('user_')) {
+      const user = await prisma.user.findUnique({
+        where: { clerkId: attendance.employeeId },
+        include: { employee: true },
+      });
+
+      if (user?.employee) {
+        employee = user.employee;
+      }
+    }
+
+    // If still not found, try to find by userId directly (in case it's stored there)
+    if (!employee) {
+      employee = await prisma.employee.findFirst({
+        where: { userId: attendance.employeeId },
+      });
+    }
+
+    if (!employee) {
+      return NextResponse.json({ error: 'Employee record not found' }, { status: 404 });
+    }
+
+    // Check if a pending regularization request already exists for this attendance record
+    const existingPendingRequest = await prisma.attendanceRegularization.findFirst({
+      where: {
+        attendanceId: attendanceId,
+        status: 'Pending',
+      },
+    });
+
+    if (existingPendingRequest) {
       return NextResponse.json(
-        { error: 'A regularization request for this date already exists.' },
+        { error: 'A pending regularization request for this date already exists.' },
         { status: 409 }
       );
     }
@@ -39,9 +79,10 @@ export async function POST(req: NextRequest) {
     const newRegularization = await prisma.attendanceRegularization.create({
       data: {
         attendanceId,
-        employeeId: attendance.employeeId,
-        date,
+        employeeId: employee.id, // Use the database Employee ID, not the Clerk user ID
+        date: new Date(date),
         reason,
+        // Store times as local time by treating the input as ISO string without forcing UTC conversion
         requestedCheckIn: requestedCheckIn ? new Date(requestedCheckIn) : null,
         requestedCheckOut: requestedCheckOut ? new Date(requestedCheckOut) : null,
         status: 'Pending',

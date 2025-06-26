@@ -1,17 +1,4 @@
-interface UserMetadata {
-  empId?: string;
-  role?: string[];
-}
-
-interface UserEmailAddress {
-  emailAddress: string;
-}
-
-interface User {
-  publicMetadata?: UserMetadata;
-  privateMetadata?: UserMetadata;
-  emailAddresses?: UserEmailAddress[];
-}
+import { User } from '@/types';
 
 export const hasAdminRole = (user: User): boolean => {
   const roles = getUserRoles(user);
