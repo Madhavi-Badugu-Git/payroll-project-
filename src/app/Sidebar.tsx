@@ -98,7 +98,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                 className={linkClasses('/admin/leave-management')}
               >
                 <div className='flex items-center space-x-3'>
-                  <CogIcon className='h-5 w-5' />
+                  <CalendarDaysIcon className='h-5 w-5' />
                   <span>Leave Admin</span>
                 </div>
               </Link>

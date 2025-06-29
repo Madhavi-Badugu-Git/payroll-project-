@@ -1,13 +1,13 @@
 'use client';
 
-import { getApiUrl } from '@/lib/api';
+import { usePayslips } from '@/hooks/usePayslips';
 import { getEmployeeIdFromUser } from '@/lib/userutils';
-import { DetailedPayslip, PayslipsResponse } from '@/types';
+import { DetailedPayslip } from '@/types';
 import { useUser } from '@clerk/nextjs'; // Import useUser
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import jsPDF from 'jspdf';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Loader from '../../../components/Loader';
 import PlaceholderComponent from '../../../components/PlaceholderComponent';
 import AppLayout from '../../AppLayout';
@@ -186,38 +186,8 @@ const generatePayslipPDF = (payslip: DetailedPayslip) => {
 };
 
 export default function PayslipsPage() {
-  const [userPayslips, setUserPayslips] = useState<DetailedPayslip[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useUser(); // Get the logged-in user
-
-  // Function to fetch payslips from API
-  const fetchPayslips = async (employeeId?: string) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const params = new URLSearchParams();
-      if (employeeId) {
-        params.append('empId', employeeId);
-      }
-
-      const response = await fetch(getApiUrl(`/payslips?${params.toString()}`));
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch payslips');
-      }
-
-      const data: PayslipsResponse = await response.json();
-      setUserPayslips(data.payslips);
-    } catch (err) {
-      console.error('Error fetching payslips:', err);
-      setError('Failed to load payslips. Please try again.');
-      setUserPayslips([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { payslips: userPayslips, isLoading, error, fetchPayslips } = usePayslips();
 
   // Function to get employee ID from user
   const getUserEmployeeId = (user: { publicMetadata?: { empId?: string } }): string | null => {
@@ -233,10 +203,8 @@ export default function PayslipsPage() {
         // If no employee ID found, still fetch but it will return empty
         fetchPayslips();
       }
-    } else {
-      setIsLoading(false);
     }
-  }, [user]);
+  }, [user, fetchPayslips]);
 
   if (isLoading) {
     return (

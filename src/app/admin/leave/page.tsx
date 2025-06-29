@@ -1,55 +1,13 @@
 'use client';
 import AppLayout from '@/app/AppLayout';
-import { getApiUrl } from '@/lib/api';
+import { useLeaveAdmin } from '@/hooks/useLeaveAdmin';
 import { ArrowLeftIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import Link from 'next/dist/client/link';
-import { useCallback, useEffect, useState } from 'react';
-
-interface LeaveApplication {
-  id: string;
-  employeeId: string;
-  startDate: string;
-  endDate: string;
-  leaveType: string;
-  reason: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'Cancelled';
-  appliedAt: string;
-  reviewedAt?: string;
-  reviewedBy?: string;
-  employee?: {
-    firstName: string;
-    lastName: string;
-    empId: string;
-  };
-}
+import { useEffect, useState } from 'react';
 
 export default function LeaveAdminPage() {
-  const [leaves, setLeaves] = useState<LeaveApplication[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { leaves, isLoading, error, fetchLeaves, approveLeave, rejectLeave } = useLeaveAdmin();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  const fetchLeaves = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(getApiUrl('/leave'));
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to fetch leave applications');
-      }
-      const data = await res.json();
-      setLeaves(data);
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('An unknown error occurred.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     fetchLeaves();
@@ -62,24 +20,21 @@ export default function LeaveAdminPage() {
     }
   }, [toast]);
 
-  const handleAction = async (id: string, status: 'APPROVED' | 'REJECTED') => {
+  const handleAction = async (id: string, action: 'APPROVED' | 'REJECTED') => {
     try {
-      const res = await fetch(getApiUrl(`/leave/${id}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(
-          errorData.error || `Failed to ${status === 'APPROVED' ? 'approve' : 'reject'} leave.`
-        );
+      if (action === 'APPROVED') {
+        await approveLeave(id);
+        setToast({
+          message: 'Leave approved successfully.',
+          type: 'success',
+        });
+      } else {
+        await rejectLeave(id);
+        setToast({
+          message: 'Leave rejected successfully.',
+          type: 'success',
+        });
       }
-      setToast({
-        message: `Leave ${status === 'APPROVED' ? 'approved' : 'rejected'} successfully.`,
-        type: 'success',
-      });
-      fetchLeaves();
     } catch (err) {
       if (err instanceof Error) {
         setToast({ message: err.message, type: 'error' });

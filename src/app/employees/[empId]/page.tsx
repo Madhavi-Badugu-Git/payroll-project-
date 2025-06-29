@@ -3,7 +3,7 @@
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { useEmployees } from '@/hooks/useEmployees';
-import { getApiUrl } from '@/lib/api';
+import { usePromotions } from '@/hooks/usePromotions';
 import { hasAdminRole } from '@/lib/userutils';
 import { Promotion } from '@/types';
 import { useUser } from '@clerk/nextjs';
@@ -15,8 +15,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-toastify';
+import { useEffect, useMemo, useState } from 'react';
 import AppLayout from '../../AppLayout';
 
 // Designations enum/constants
@@ -44,10 +43,15 @@ export default function EmployeeDetailsPage() {
   const isAdmin = useMemo(() => (user ? hasAdminRole(user) : false), [user]);
 
   const { employee, isLoading, error, fetchEmployee } = useEmployees();
+  const {
+    promotions,
+    isLoading: isLoadingPromotions,
+    fetchPromotions,
+    createPromotion,
+    updatePromotion,
+    deletePromotion,
+  } = usePromotions();
   const { confirmDialog, showConfirmDialog, hideConfirmDialog } = useConfirmDialog();
-
-  const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [isLoadingPromotions, setIsLoadingPromotions] = useState(true);
 
   // Promotion CRUD states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -101,20 +105,13 @@ export default function EmployeeDetailsPage() {
     hideConfirmDialog();
 
     try {
-      const response = await fetch(getApiUrl(`/promotions/${promotionId}`), {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete promotion');
+      const success = await deletePromotion(promotionId);
+      if (success) {
+        // Refresh both promotions list and employee data
+        await Promise.all([fetchPromotions(empId), fetchEmployee(empId)]);
       }
-
-      // Refresh both promotions list and employee data
-      await Promise.all([fetchPromotions(), fetchEmployee(empId)]);
-      toast.success('Promotion record deleted successfully!');
     } catch (err) {
       console.error('Error deleting promotion:', err);
-      toast.error('Failed to delete promotion. Please try again.');
     }
   };
 
@@ -123,48 +120,40 @@ export default function EmployeeDetailsPage() {
     setIsSubmitting(true);
 
     try {
-      const url = editingPromotion ? `/api/promotions/${editingPromotion.id}` : '/api/promotions';
-      const method = editingPromotion ? 'PUT' : 'POST';
+      const promotionData = {
+        empId: empId,
+        salary: parseFloat(formData.salary),
+        revisionDate: formData.revisionDate,
+        currentPosition: formData.currentPosition,
+        previousPosition: formData.previousPosition,
+      };
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          empId: empId,
-          ...formData,
-          salary: parseFloat(formData.salary),
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save promotion');
+      let success = false;
+      if (editingPromotion) {
+        success = await updatePromotion(editingPromotion.id, promotionData);
+      } else {
+        success = await createPromotion(promotionData);
       }
 
-      // Close modals and refresh data
-      setShowAddModal(false);
-      setShowEditModal(false);
-      setEditingPromotion(null);
+      if (success) {
+        // Close modals and refresh data
+        setShowAddModal(false);
+        setShowEditModal(false);
+        setEditingPromotion(null);
 
-      // Refresh both promotions list and employee data
-      await Promise.all([fetchPromotions(), fetchEmployee(empId)]);
+        // Refresh both promotions list and employee data
+        await Promise.all([fetchPromotions(empId), fetchEmployee(empId)]);
 
-      // Reset form
-      setFormData({
-        salary: '',
-        revisionDate: '',
-        currentPosition: '',
-        previousPosition: '',
-      });
-
-      toast.success(
-        editingPromotion ? 'Promotion updated successfully!' : 'Promotion added successfully!'
-      );
+        // Reset form
+        setFormData({
+          salary: '',
+          revisionDate: '',
+          currentPosition: '',
+          previousPosition: '',
+        });
+      }
     } catch (err) {
       console.error('Error saving promotion:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to save promotion');
     } finally {
       setIsSubmitting(false);
     }
@@ -178,26 +167,6 @@ export default function EmployeeDetailsPage() {
     }));
   };
 
-  const fetchPromotions = useCallback(async () => {
-    if (!empId) return;
-
-    setIsLoadingPromotions(true);
-
-    try {
-      const response = await fetch(getApiUrl(`/promotions?empId=${encodeURIComponent(empId)}`));
-      if (!response.ok) {
-        throw new Error('Failed to fetch promotions data');
-      }
-
-      const data = await response.json();
-      setPromotions(data.promotions);
-    } catch (err) {
-      console.error('Error fetching promotions:', err);
-    } finally {
-      setIsLoadingPromotions(false);
-    }
-  }, [empId]);
-
   useEffect(() => {
     if (empId) {
       fetchEmployee(empId);
@@ -205,8 +174,10 @@ export default function EmployeeDetailsPage() {
   }, [empId, fetchEmployee]);
 
   useEffect(() => {
-    fetchPromotions();
-  }, [fetchPromotions]);
+    if (empId) {
+      fetchPromotions(empId);
+    }
+  }, [empId, fetchPromotions]);
 
   const getStatusColorClass = (status: string) => {
     switch (status) {

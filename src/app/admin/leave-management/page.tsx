@@ -3,7 +3,6 @@
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { useLeaveManagement } from '@/hooks/useLeaveManagement';
-import { getApiUrl } from '@/lib/api';
 import { hasAdminRole } from '@/lib/userutils';
 import { useUser } from '@clerk/nextjs';
 import {
@@ -32,6 +31,7 @@ export default function AdminLeaveManagementPage() {
     fetchStats,
     processMonthlyAllocation,
     processCarryForward,
+    initializeEmployeeLeaves,
   } = useLeaveManagement();
 
   const { confirmDialog, showConfirmDialog, hideConfirmDialog } = useConfirmDialog();
@@ -74,30 +74,16 @@ export default function AdminLeaveManagementPage() {
     });
   };
 
-  const initializeEmployeeLeaves = async (empId: string, joiningDate: string) => {
+  const handleInitializeEmployeeLeaves = async (empId: string, joiningDate: string) => {
     showConfirmDialog({
       title: 'Initialize Leave Balance',
       message: `Are you sure you want to initialize leave balance for employee ${empId}?`,
       onConfirm: async () => {
         try {
-          const response = await fetch(getApiUrl('/leave-management'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'initialize',
-              empId,
-              joiningDate,
-            }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to initialize employee leaves');
-          }
-
+          await initializeEmployeeLeaves(empId, joiningDate);
           await fetchStats(selectedYear); // Refresh data
-        } catch (error) {
-          console.error('Error initializing employee leaves:', error);
+        } catch (_error) {
+          // Error is already handled in the hook
         }
       },
     });
@@ -319,7 +305,7 @@ export default function AdminLeaveManagementPage() {
                       {!employee.balance && (
                         <button
                           onClick={() =>
-                            initializeEmployeeLeaves(
+                            handleInitializeEmployeeLeaves(
                               employee.empId,
                               new Date().toISOString().split('T')[0]
                             )

@@ -11,79 +11,30 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getApiUrl } from '../../lib/api';
+import { LeaveEntry, useLeaves } from '../../hooks/useLeaves';
 import AppLayout from '../AppLayout';
-
-// Enhanced interfaces for the new leave management system
-interface LeaveEntry {
-  id: string;
-  employeeId: string;
-  leaveType: 'Sick' | 'Casual' | 'Earned';
-  startDate: string;
-  endDate: string;
-  reason: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'Cancelled';
-  appliedAt?: string;
-  createdAt?: string;
-  noOfDays: number;
-  appliedDate: string;
-}
-
-interface LeaveBalance {
-  totalAllocated: number;
-  totalUsed: number;
-  totalAvailable: number;
-  carryForward: number;
-}
-
-interface LeaveAccumulation {
-  id: string;
-  empId: string;
-  year: number;
-  month: number;
-  monthName: string;
-  allocatedDays: number;
-  reason: string;
-  accumulationDate: string;
-}
-
-interface LeaveTransaction {
-  id: string;
-  empId: string;
-  leaveApplicationId: string | null;
-  transactionType: string;
-  days: number;
-  balanceBefore: number;
-  balanceAfter: number;
-  reason: string;
-  transactionDate: string;
-  leaveApplication?: {
-    id: string;
-    startDate: string;
-    endDate: string;
-    leaveType: string;
-    reason: string;
-    status: string;
-  } | null;
-}
-
-interface LeaveInfo {
-  balance: LeaveBalance | null;
-  accumulations: LeaveAccumulation[];
-  transactions: LeaveTransaction[];
-}
 
 const LEAVE_TYPES: LeaveEntry['leaveType'][] = ['Sick', 'Casual', 'Earned'];
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function EnhancedLeavesPage() {
   const { user } = useUser();
-  const [leaves, setLeaves] = useState<LeaveEntry[]>([]);
-  const [leaveInfo, setLeaveInfo] = useState<LeaveInfo>({
-    balance: null,
-    accumulations: [],
-    transactions: [],
-  });
+  const {
+    leaves,
+    leaveInfo,
+    configurations,
+    isLoading,
+    isSubmitting,
+    error: hookError,
+    fetchLeaves,
+    fetchLeaveInfo,
+    fetchConfigurations,
+    createLeave,
+    updateLeave,
+    deleteLeave,
+    cancelLeave,
+  } = useLeaves();
+
   const [sanctionedLeavePerYear, setSanctionedLeavePerYear] = useState<number>(24);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLeave, setEditingLeave] = useState<LeaveEntry | null>(null);
@@ -100,31 +51,7 @@ export default function EnhancedLeavesPage() {
     'applications'
   );
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
-
-  // Fetch configurations
-  const fetchConfigurations = useCallback(async () => {
-    try {
-      const response = await fetch(getApiUrl('/configurations'));
-      if (!response.ok) {
-        throw new Error('Failed to fetch configurations');
-      }
-      const data = await response.json();
-      const configs = data.configurations.reduce(
-        (acc: Record<string, string>, config: { configKey: string; configValue: string }) => {
-          acc[config.configKey] = config.configValue;
-          return acc;
-        },
-        {}
-      );
-      setSanctionedLeavePerYear(parseInt(configs.SANCTIONED_LEAVE_PER_YEAR || '24'));
-    } catch (error) {
-      console.error('Error fetching configurations:', error);
-      setSanctionedLeavePerYear(24);
-    }
-  }, []);
 
   // Get employee ID from user
   const getEmployeeId = useCallback((): string | null => {
@@ -148,80 +75,33 @@ export default function EnhancedLeavesPage() {
     return null;
   }, [user]);
 
-  // Fetch leave applications
-  const fetchLeaves = useCallback(async () => {
-    if (!user) return;
-    setIsLoading(true);
-    try {
-      const response = await fetch(getApiUrl('/leave'));
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch leave data.');
-      }
-      const data: Omit<LeaveEntry, 'noOfDays' | 'appliedDate'>[] = await response.json();
-
-      const processedLeaves = data.map(leave => {
-        const from = new Date(leave.startDate);
-        const to = new Date(leave.endDate);
-        const diffTime = Math.abs(to.getTime() - from.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-        const appliedDate = leave.appliedAt
-          ? new Date(leave.appliedAt).toISOString().split('T')[0]
-          : new Date().toISOString().split('T')[0];
-
-        return {
-          ...leave,
-          startDate: leave.startDate.split('T')[0],
-          endDate: leave.endDate.split('T')[0],
-          noOfDays: diffDays,
-          appliedDate: appliedDate,
-        };
-      });
-      setLeaves(
-        processedLeaves.sort(
-          (a, b) => new Date(b.appliedDate).getTime() - new Date(a.appliedDate).getTime()
-        )
-      );
-    } catch (err) {
-      if (err instanceof Error) {
-        setToast({ message: err.message, type: 'error' });
-      } else {
-        setToast({ message: 'An unknown error occurred.', type: 'error' });
-      }
-    } finally {
-      setIsLoading(false);
+  // Update sanctioned leave per year when configurations change
+  useEffect(() => {
+    const sanctionedLeave = configurations.SANCTIONED_LEAVE_PER_YEAR;
+    if (sanctionedLeave) {
+      setSanctionedLeavePerYear(parseInt(sanctionedLeave));
     }
-  }, [user]);
+  }, [configurations]);
 
-  // Fetch leave balance and history
-  const fetchLeaveInfo = useCallback(async () => {
-    const empId = getEmployeeId();
-    if (!empId) return;
-
-    try {
-      const response = await fetch(
-        getApiUrl(`/leave-management?empId=${empId}&year=${CURRENT_YEAR}`)
-      );
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch leave information.');
-      }
-      const data = await response.json();
-      setLeaveInfo(data);
-    } catch (err) {
-      console.error('Error fetching leave info:', err);
-      // Don't show error toast for leave info as it might not be initialized yet
-    }
-  }, [getEmployeeId]);
-
+  // Initial data loading
   useEffect(() => {
     if (user) {
       fetchConfigurations();
       fetchLeaves();
-      fetchLeaveInfo();
+
+      const empId = getEmployeeId();
+      if (empId) {
+        fetchLeaveInfo(empId, CURRENT_YEAR);
+      }
     }
-  }, [user, fetchLeaves, fetchConfigurations, fetchLeaveInfo]);
+  }, [user, fetchLeaves, fetchConfigurations, fetchLeaveInfo, getEmployeeId]);
+
+  // Handle hook errors
+  useEffect(() => {
+    if (hookError) {
+      setToast({ message: hookError, type: 'error' });
+    }
+  }, [hookError]);
 
   useEffect(() => {
     if (toast) {
@@ -338,18 +218,15 @@ export default function EnhancedLeavesPage() {
 
   const confirmDelete = async () => {
     if (leaveToDeleteId) {
-      setIsSubmitting(true);
       try {
-        const response = await fetch(getApiUrl(`/leave/${leaveToDeleteId}`), {
-          method: 'DELETE',
-        });
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to delete leave.');
-        }
+        await deleteLeave(leaveToDeleteId);
         setToast({ message: 'Leave request deleted successfully.', type: 'success' });
-        fetchLeaves();
-        fetchLeaveInfo(); // Refresh leave info
+
+        // Refresh leave info
+        const empId = getEmployeeId();
+        if (empId) {
+          await fetchLeaveInfo(empId, CURRENT_YEAR);
+        }
       } catch (err) {
         if (err instanceof Error) {
           setToast({ message: err.message, type: 'error' });
@@ -357,37 +234,27 @@ export default function EnhancedLeavesPage() {
           setToast({ message: 'An unknown error occurred.', type: 'error' });
         }
       } finally {
-        setIsSubmitting(false);
         closeDeleteConfirm();
       }
     }
   };
 
-  const cancelLeave = async (leaveId: string) => {
-    setIsSubmitting(true);
+  const handleCancelLeave = async (leaveId: string) => {
     try {
-      const response = await fetch(getApiUrl(`/leave/${leaveId}`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'cancel' }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to cancel leave.');
-      }
-
+      await cancelLeave(leaveId);
       setToast({ message: 'Leave request cancelled successfully.', type: 'success' });
-      fetchLeaves();
-      fetchLeaveInfo(); // Refresh leave info
+
+      // Refresh leave info
+      const empId = getEmployeeId();
+      if (empId) {
+        await fetchLeaveInfo(empId, CURRENT_YEAR);
+      }
     } catch (err) {
       if (err instanceof Error) {
         setToast({ message: err.message, type: 'error' });
       } else {
         setToast({ message: 'An unknown error occurred.', type: 'error' });
       }
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -417,39 +284,34 @@ export default function EnhancedLeavesPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    setToast(null);
-
-    const payload = {
+    const leaveData = {
       leaveType: formData.leaveType,
       startDate: formData.startDate,
       endDate: formData.endDate,
       reason: formData.reason,
     };
 
-    const url = editingLeave ? getApiUrl(`/leave/${editingLeave.id}`) : getApiUrl('/leave');
-    const method = editingLeave ? 'PUT' : 'POST';
-
     try {
-      const response = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.error || `Failed to ${editingLeave ? 'update' : 'submit'} leave.`
-        );
+      if (editingLeave) {
+        await updateLeave(editingLeave.id, leaveData);
+        setToast({
+          message: 'Leave request updated successfully!',
+          type: 'success',
+        });
+      } else {
+        await createLeave(leaveData);
+        setToast({
+          message: 'Leave request submitted successfully!',
+          type: 'success',
+        });
       }
 
-      setToast({
-        message: `Leave request ${editingLeave ? 'updated' : 'submitted'} successfully!`,
-        type: 'success',
-      });
-      fetchLeaves();
-      fetchLeaveInfo(); // Refresh leave info
+      // Refresh leave info
+      const empId = getEmployeeId();
+      if (empId) {
+        await fetchLeaveInfo(empId, CURRENT_YEAR);
+      }
+
       closeModal();
     } catch (err) {
       if (err instanceof Error) {
@@ -457,8 +319,6 @@ export default function EnhancedLeavesPage() {
       } else {
         setToast({ message: 'An unknown error occurred.', type: 'error' });
       }
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -685,7 +545,7 @@ export default function EnhancedLeavesPage() {
                                 <PencilIcon className='h-5 w-5' />
                               </button>
                               <button
-                                onClick={() => cancelLeave(leave.id)}
+                                onClick={() => handleCancelLeave(leave.id)}
                                 className='text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-200'
                                 disabled={isSubmitting}
                                 title='Cancel Leave'

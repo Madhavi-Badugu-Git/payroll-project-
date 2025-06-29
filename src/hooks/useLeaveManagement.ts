@@ -247,6 +247,40 @@ export const useLeaveManagement = () => {
     []
   );
 
+  // Initialize employee leaves
+  const initializeEmployeeLeaves = useCallback(
+    async (empId: string, joiningDate: string): Promise<void> => {
+      try {
+        const response = await axios.post(getApiUrl('/leave-management'), {
+          action: 'initialize',
+          empId,
+          joiningDate,
+        });
+
+        console.log('Employee leaves initialized successfully:', {
+          empId,
+          joiningDate,
+          response: response.data,
+        });
+
+        toast.success(`Leave balance initialized successfully for employee ${empId}`);
+        return response.data;
+      } catch (error) {
+        console.error('Error initializing employee leaves:', {
+          empId,
+          joiningDate,
+          error,
+        });
+
+        const errorMessage =
+          error instanceof Error ? error.message : 'Failed to initialize employee leaves';
+        toast.error(errorMessage);
+        throw error;
+      }
+    },
+    []
+  );
+
   return {
     // State
     stats,
@@ -263,5 +297,6 @@ export const useLeaveManagement = () => {
     approveLeave,
     rejectLeave,
     getEmployeeLeaveSummary,
+    initializeEmployeeLeaves,
   };
 };
