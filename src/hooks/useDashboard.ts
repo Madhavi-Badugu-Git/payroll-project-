@@ -2,6 +2,7 @@ import { Holiday, LeaveEntry, LeaveSummary } from '@/types';
 import axios from 'axios';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { getApiUrl } from '../lib/api';
 
 export interface DashboardData {
   leaveSummary: LeaveSummary | null;
@@ -87,8 +88,8 @@ export const useDashboard = (): UseDashboardReturn => {
     try {
       // Fetch both leave and holiday data in parallel
       const [leaveResponse, holidayResponse] = await Promise.all([
-        axios.get<LeaveEntry[]>('/api/leave'),
-        axios.get<Holiday[]>('/api/holidays'),
+        axios.get<LeaveEntry[]>(getApiUrl('/leave')),
+        axios.get<Holiday[]>(getApiUrl('/holidays')),
       ]);
 
       const leaves = leaveResponse.data || [];

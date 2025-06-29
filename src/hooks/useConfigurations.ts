@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
+import { getApiUrl } from '../lib/api';
 
 // Configuration types matching the actual Prisma schema
 export interface Configuration {
@@ -44,7 +45,9 @@ export const useConfigurations = (): UseConfigurationsReturn => {
     setError(null);
 
     try {
-      const response = await axios.get<{ configurations: Configuration[] }>('/api/configurations');
+      const response = await axios.get<{ configurations: Configuration[] }>(
+        getApiUrl('/configurations')
+      );
       setConfigurations(response.data.configurations);
     } catch (err) {
       const message = axios.isAxiosError(err)
@@ -62,7 +65,7 @@ export const useConfigurations = (): UseConfigurationsReturn => {
       setError(null);
 
       try {
-        const response = await axios.post('/api/configurations', data);
+        const response = await axios.post(getApiUrl('/configurations'), data);
 
         if (response.status === 200 || response.status === 201) {
           toast.success('Configuration created successfully!');
@@ -89,7 +92,7 @@ export const useConfigurations = (): UseConfigurationsReturn => {
       setError(null);
 
       try {
-        const response = await axios.put(`/api/configurations/${id}`, data);
+        const response = await axios.put(getApiUrl(`/configurations/${id}`), data);
 
         if (response.status === 200) {
           toast.success('Configuration updated successfully!');
@@ -116,7 +119,7 @@ export const useConfigurations = (): UseConfigurationsReturn => {
       setError(null);
 
       try {
-        const response = await axios.delete(`/api/configurations/${id}`);
+        const response = await axios.delete(getApiUrl(`/configurations/${id}`));
 
         if (response.status === 200) {
           toast.success('Configuration deleted successfully!');

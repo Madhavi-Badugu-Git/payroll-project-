@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
+import { getApiUrl } from '../lib/api';
 
 // Types specific to the attendance page
 export interface AttendanceEntry {
@@ -81,7 +82,7 @@ export const useAttendance = (): UseAttendanceReturn => {
         const year = date.getFullYear();
         const month = date.getMonth() + 1; // getMonth() is 0-indexed
         const response = await axios.get<AttendanceEntry[]>(
-          `/api/attendance?employeeId=${employeeId}&year=${year}&month=${month}`
+          getApiUrl(`/attendance?employeeId=${employeeId}&year=${year}&month=${month}`)
         );
 
         // Add client-side logic to determine if regularization is allowed
@@ -138,7 +139,7 @@ export const useAttendance = (): UseAttendanceReturn => {
       };
 
       try {
-        const response = await axios.post('/api/attendance', payload);
+        const response = await axios.post(getApiUrl('/attendance'), payload);
 
         if (response.status === 200) {
           toast.success(`${type === 'checkIn' ? 'Check-in' : 'Check-out'} successful!`);
@@ -175,7 +176,7 @@ export const useAttendance = (): UseAttendanceReturn => {
       setError(null);
 
       try {
-        const response = await axios.post('/api/leave', {
+        const response = await axios.post(getApiUrl('/leave'), {
           employeeId,
           ...data,
         });
@@ -210,7 +211,7 @@ export const useAttendance = (): UseAttendanceReturn => {
       setError(null);
 
       try {
-        const response = await axios.post('/api/regularization', data);
+        const response = await axios.post(getApiUrl('/regularization'), data);
 
         if (response.status === 200 || response.status === 201) {
           toast.success('Regularization request submitted successfully!');

@@ -1,5 +1,7 @@
 import { useUser } from '@clerk/nextjs';
+import axios, { AxiosError } from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getApiUrl } from '../lib/api';
 
 interface SyncUserResponse {
   success: boolean;
@@ -25,23 +27,56 @@ interface UseUserSyncReturn {
   error: string | null;
   syncUser: () => Promise<void>;
   lastSyncResult: SyncUserResponse | null;
+  retryCount: number;
+  maxRetries: number;
+  canRetry: boolean;
 }
 
+/**
+ * Custom hook for syncing Clerk user data with the database
+ *
+ * Features:
+ * - Automatic sync when user loads
+ * - Prevents duplicate API calls
+ * - Uses axios for better error handling
+ * - Proper state management for sync status
+ * - Automatic retry on user changes
+ * - Retry limit protection (max 5 attempts)
+ * - Comprehensive error tracking with attempt counts
+ *
+ * @returns {UseUserSyncReturn} Hook state, sync function, and retry information
+ */
 export const useUserSync = (): UseUserSyncReturn => {
   const { user, isLoaded } = useUser();
   const [isLoading, setIsLoading] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSyncResult, setLastSyncResult] = useState<SyncUserResponse | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const syncedRef = useRef(false);
+  const lastUserIdRef = useRef<string | null>(null);
+
+  const MAX_RETRIES = 5;
 
   const syncUser = useCallback(async (): Promise<void> => {
-    if (!user || !isLoaded) {
+    const currentUser = user;
+    const currentIsLoaded = isLoaded;
+
+    if (!currentUser || !currentIsLoaded) {
       setError('User not available for sync');
       return;
     }
 
-    if (syncedRef.current) {
+    // Check if we've exceeded max retries
+    if (retryCount >= MAX_RETRIES) {
+      const maxRetriesError = `Maximum sync attempts (${MAX_RETRIES}) exceeded. Please refresh the page or contact support.`;
+      setError(maxRetriesError);
+      console.error(maxRetriesError);
+      return;
+    }
+
+    // Check if we're already syncing or already synced for this user
+    if (syncedRef.current && lastUserIdRef.current === currentUser.id) {
       console.log('User already synced, skipping duplicate sync');
       return;
     }
@@ -49,76 +84,102 @@ export const useUserSync = (): UseUserSyncReturn => {
     setIsLoading(true);
     setError(null);
     syncedRef.current = true; // Prevent multiple calls
+    lastUserIdRef.current = currentUser.id;
 
     try {
       console.log('Attempting to sync user:', {
-        userId: user.id,
-        email: user.emailAddresses[0]?.emailAddress,
+        userId: currentUser.id,
+        email: currentUser.emailAddresses[0]?.emailAddress,
+        attempt: retryCount + 1,
+        maxRetries: MAX_RETRIES,
       });
 
-      const response = await fetch('/api/sync-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: user.id }),
+      const url = getApiUrl('/sync-user');
+      const responseData = await axios.post<SyncUserResponse>(url, {
+        userId: currentUser.id,
       });
 
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch {
-          errorData = await response.text();
-        }
+      console.log('User data synced successfully:', responseData.data);
 
-        const errorMessage = `Failed to sync user data: ${response.status} ${response.statusText}`;
-        console.error(errorMessage, {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData,
-          url: response.url,
-        });
-
-        setError(errorMessage);
-        syncedRef.current = false; // Allow retry on error
-        return;
-      }
-
-      const responseData: SyncUserResponse = await response.json();
-      console.log('User data synced successfully:', responseData);
-
-      setLastSyncResult(responseData);
+      setLastSyncResult(responseData.data);
       setIsSynced(true);
       setError(null);
+      setRetryCount(0); // Reset retry count on success
     } catch (error) {
-      const errorMessage = `Error syncing user to database: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      console.error(errorMessage, error);
+      let errorMessage = 'Error syncing user to database: ';
+
+      if (error instanceof AxiosError) {
+        if (error.response) {
+          // Server responded with error status
+          errorMessage += `${error.response.status} ${error.response.statusText}`;
+          console.error(errorMessage, {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            data: error.response.data,
+            url: error.config?.url,
+            attempt: retryCount + 1,
+            maxRetries: MAX_RETRIES,
+          });
+        } else if (error.request) {
+          // Request was made but no response received
+          errorMessage += 'No response from server';
+          console.error(errorMessage, error.request);
+        } else {
+          // Something else happened
+          errorMessage += error.message;
+          console.error(errorMessage, error.message);
+        }
+      } else {
+        errorMessage += error instanceof Error ? error.message : 'Unknown error';
+        console.error(errorMessage, error);
+      }
+
+      // Increment retry count
+      const newRetryCount = retryCount + 1;
+      setRetryCount(newRetryCount);
+
+      // Add retry information to error message
+      if (newRetryCount >= MAX_RETRIES) {
+        errorMessage += ` (Max attempts reached: ${MAX_RETRIES}/${MAX_RETRIES})`;
+      } else {
+        errorMessage += ` (Attempt ${newRetryCount}/${MAX_RETRIES})`;
+      }
 
       setError(errorMessage);
       syncedRef.current = false; // Allow retry on error
+      lastUserIdRef.current = null;
       setIsSynced(false);
     } finally {
       setIsLoading(false);
     }
-  }, [user, isLoaded]);
+  }, [user, isLoaded, retryCount, MAX_RETRIES]);
 
   // Reset sync state when user changes
   useEffect(() => {
-    if (user?.id !== lastSyncResult?.user?.clerkId) {
+    if (user?.id && user.id !== lastUserIdRef.current) {
       syncedRef.current = false;
       setIsSynced(false);
       setError(null);
       setLastSyncResult(null);
+      setRetryCount(0); // Reset retry count for new user
+      lastUserIdRef.current = null;
     }
-  }, [user?.id, lastSyncResult?.user?.clerkId]);
+  }, [user?.id]);
 
-  // Auto-sync when user is loaded
+  // Auto-sync when user is loaded - use ref to track sync attempts
   useEffect(() => {
-    if (isLoaded && user && !syncedRef.current && !isLoading) {
+    const shouldSync =
+      isLoaded &&
+      user &&
+      !syncedRef.current &&
+      !isLoading &&
+      user.id !== lastUserIdRef.current &&
+      retryCount < MAX_RETRIES; // Don't auto-sync if max retries reached
+
+    if (shouldSync) {
       syncUser();
     }
-  }, [user, isLoaded, syncUser, isLoading]);
+  }, [isLoaded, user, isLoading, syncUser, retryCount, MAX_RETRIES]);
 
   return {
     isLoading,
@@ -126,5 +187,8 @@ export const useUserSync = (): UseUserSyncReturn => {
     error,
     syncUser,
     lastSyncResult,
+    retryCount,
+    maxRetries: MAX_RETRIES,
+    canRetry: retryCount < MAX_RETRIES,
   };
 };

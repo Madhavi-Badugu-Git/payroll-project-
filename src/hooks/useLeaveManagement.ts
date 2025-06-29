@@ -2,6 +2,7 @@ import { LeaveApplication, LeaveSummary } from '@/types/leave';
 import axios from 'axios';
 import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
+import { getApiUrl } from '../lib/api';
 
 interface AdminStats {
   totalEmployees: number;
@@ -44,7 +45,7 @@ export const useLeaveManagement = () => {
       setIsLoading(true);
 
       // Fetch employees
-      const employeesResponse = await axios.get('/api/employees?limit=1000');
+      const employeesResponse = await axios.get(getApiUrl('/employees?limit=1000'));
       const employees = employeesResponse.data.employees || [];
 
       // Initialize stats
@@ -57,7 +58,7 @@ export const useLeaveManagement = () => {
       for (const employee of employees) {
         try {
           const leaveResponse = await axios.get(
-            `/api/leave-management?empId=${employee.empId}&year=${selectedYear}`
+            getApiUrl(`/leave-management?empId=${employee.empId}&year=${selectedYear}`)
           );
           const leaveData = leaveResponse.data;
 
@@ -90,7 +91,7 @@ export const useLeaveManagement = () => {
       }
 
       // Fetch pending applications count
-      const leaveResponse = await axios.get('/api/leave');
+      const leaveResponse = await axios.get(getApiUrl('/leave'));
       const allLeaves: Array<{ status: string }> = leaveResponse.data;
       const pendingApplications = allLeaves.filter(leave => leave.status === 'PENDING').length;
 
@@ -118,7 +119,7 @@ export const useLeaveManagement = () => {
   const fetchLeaveApplications = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get('/api/leave');
+      const response = await axios.get(getApiUrl('/leave'));
       setLeaveApplications(response.data);
       return response.data;
     } catch (error) {
@@ -134,7 +135,7 @@ export const useLeaveManagement = () => {
   const processMonthlyAllocation = useCallback(async () => {
     try {
       setIsProcessing(true);
-      const response = await axios.post('/api/leave-management', {
+      const response = await axios.post(getApiUrl('/leave-management'), {
         action: 'monthly-allocation',
         empId: 'ADMIN',
       });
@@ -160,7 +161,7 @@ export const useLeaveManagement = () => {
   const processCarryForward = useCallback(async () => {
     try {
       setIsProcessing(true);
-      const response = await axios.post('/api/leave-management', {
+      const response = await axios.post(getApiUrl('/leave-management'), {
         action: 'carry-forward',
         empId: 'ADMIN',
       });
@@ -185,7 +186,7 @@ export const useLeaveManagement = () => {
   // Approve leave application
   const approveLeave = useCallback(async (leaveId: string, approvedBy: string) => {
     try {
-      const response = await axios.patch(`/api/leave/${leaveId}`, {
+      const response = await axios.patch(getApiUrl(`/leave/${leaveId}`), {
         status: 'APPROVED',
         approvedBy,
         approvedDate: new Date().toISOString(),
@@ -206,7 +207,7 @@ export const useLeaveManagement = () => {
   const rejectLeave = useCallback(
     async (leaveId: string, approvedBy: string, rejectionReason: string) => {
       try {
-        const response = await axios.patch(`/api/leave/${leaveId}`, {
+        const response = await axios.patch(getApiUrl(`/leave/${leaveId}`), {
           status: 'REJECTED',
           approvedBy,
           approvedDate: new Date().toISOString(),
@@ -233,7 +234,7 @@ export const useLeaveManagement = () => {
         const params = new URLSearchParams({ empId });
         if (year) params.append('year', year.toString());
 
-        const response = await axios.get(`/api/leave-management?${params.toString()}`);
+        const response = await axios.get(getApiUrl(`/leave-management?${params.toString()}`));
         return response.data;
       } catch (error) {
         console.error('Error fetching employee leave summary:', error);

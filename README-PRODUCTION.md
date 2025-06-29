@@ -210,3 +210,23 @@ npm audit fix
 npm run build
 ./scripts/deploy.sh production
 ```
+
+## Environment Configuration
+
+### BasePath Setup
+
+The application is configured to run at `/payroll` subdirectory in production:
+
+- **Development**: No basePath (access at `http://localhost:3000`)
+- **Production**: BasePath `/payroll` (access at
+  `https://trinitstechnologies.com/payroll`)
+
+This is automatically handled in `next.config.ts` based on `NODE_ENV`.
+
+### API URLs
+
+All API calls are centralized through `getApiUrl()` function in
+`/src/lib/api.ts`:
+
+- Development: `/api/endpoint`
+- Production: `/payroll/api/endpoint` (basePath added automatically)

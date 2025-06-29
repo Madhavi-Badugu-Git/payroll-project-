@@ -3,6 +3,7 @@
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { useLeaveManagement } from '@/hooks/useLeaveManagement';
+import { getApiUrl } from '@/lib/api';
 import { hasAdminRole } from '@/lib/userutils';
 import { useUser } from '@clerk/nextjs';
 import {
@@ -79,7 +80,7 @@ export default function AdminLeaveManagementPage() {
       message: `Are you sure you want to initialize leave balance for employee ${empId}?`,
       onConfirm: async () => {
         try {
-          const response = await fetch('/api/leave-management', {
+          const response = await fetch(getApiUrl('/leave-management'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

@@ -79,6 +79,7 @@ const nextConfig: NextConfig = {
   // Environment variables for runtime
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
+    NEXT_PUBLIC_BASE_PATH: process.env.NEXT_PUBLIC_BASE_PATH,
   },
 
   // Experimental features for better performance

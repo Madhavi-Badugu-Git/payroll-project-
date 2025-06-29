@@ -137,3 +137,4 @@ dist
 
 /src/generated/prisma
 .env.production.example
+.env.production

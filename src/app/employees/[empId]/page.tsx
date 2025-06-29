@@ -3,6 +3,7 @@
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { useEmployees } from '@/hooks/useEmployees';
+import { getApiUrl } from '@/lib/api';
 import { hasAdminRole } from '@/lib/userutils';
 import { Promotion } from '@/types';
 import { useUser } from '@clerk/nextjs';
@@ -100,7 +101,7 @@ export default function EmployeeDetailsPage() {
     hideConfirmDialog();
 
     try {
-      const response = await fetch(`/api/promotions/${promotionId}`, {
+      const response = await fetch(getApiUrl(`/promotions/${promotionId}`), {
         method: 'DELETE',
       });
 
@@ -183,7 +184,7 @@ export default function EmployeeDetailsPage() {
     setIsLoadingPromotions(true);
 
     try {
-      const response = await fetch(`/api/promotions?empId=${encodeURIComponent(empId)}`);
+      const response = await fetch(getApiUrl(`/promotions?empId=${encodeURIComponent(empId)}`));
       if (!response.ok) {
         throw new Error('Failed to fetch promotions data');
       }

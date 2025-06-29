@@ -1,5 +1,6 @@
 'use client';
 
+import { getApiUrl } from '@/lib/api';
 import { getEmployeeIdFromUser } from '@/lib/userutils';
 import { DetailedPayslip, PayslipsResponse } from '@/types';
 import { useUser } from '@clerk/nextjs'; // Import useUser
@@ -201,7 +202,7 @@ export default function PayslipsPage() {
         params.append('empId', employeeId);
       }
 
-      const response = await fetch(`/api/payslips?${params.toString()}`);
+      const response = await fetch(getApiUrl(`/payslips?${params.toString()}`));
 
       if (!response.ok) {
         throw new Error('Failed to fetch payslips');

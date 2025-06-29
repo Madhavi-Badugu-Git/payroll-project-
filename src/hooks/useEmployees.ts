@@ -2,6 +2,7 @@ import { Employee, EmployeeFormData, ImportEmployeeData } from '@/types';
 import axios from 'axios';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { getApiUrl } from '../lib/api';
 
 export interface UseEmployeesReturn {
   employees: Employee[];
@@ -46,7 +47,7 @@ export const useEmployees = (): UseEmployeesReturn => {
 
     try {
       const response = await axios.get<{ employees: Employee[]; totalCount: number }>(
-        '/api/employees'
+        getApiUrl('/employees')
       );
       setEmployees(response.data.employees);
       setTotalCount(response.data.totalCount);
@@ -69,7 +70,7 @@ export const useEmployees = (): UseEmployeesReturn => {
     try {
       // Fetch employee by empId using the employees API with search
       const response = await axios.get<{ employees: Employee[]; totalCount: number }>(
-        `/api/employees?search=${encodeURIComponent(empId)}`
+        getApiUrl(`/employees?search=${encodeURIComponent(empId)}`)
       );
 
       // Find the exact match by empId
@@ -117,7 +118,7 @@ export const useEmployees = (): UseEmployeesReturn => {
         };
 
         console.log('Creating employee with transformed data:', apiData);
-        await axios.post('/api/employees', apiData);
+        await axios.post(getApiUrl('/employees'), apiData);
         toast.success('Employee created successfully!');
         await fetchEmployees(); // Refresh the list
         return true;
@@ -147,7 +148,7 @@ export const useEmployees = (): UseEmployeesReturn => {
       setError(null);
 
       try {
-        await axios.put(`/api/employees/${id}`, employeeData);
+        await axios.put(getApiUrl(`/employees/${id}`), employeeData);
         toast.success('Employee updated successfully!');
         await fetchEmployees(); // Refresh the list
         // If we're viewing this specific employee, refresh it too
@@ -173,7 +174,7 @@ export const useEmployees = (): UseEmployeesReturn => {
       setError(null);
 
       try {
-        await axios.delete(`/api/employees/${id}`);
+        await axios.delete(getApiUrl(`/employees/${id}`));
         toast.success('Employee deleted successfully!');
         await fetchEmployees(); // Refresh the list
         return true;
@@ -276,7 +277,7 @@ export const useEmployees = (): UseEmployeesReturn => {
           };
 
           // Create employee via API
-          await axios.post('/api/employees', employeeData);
+          await axios.post(getApiUrl('/employees'), employeeData);
           successCount++;
         } catch (error) {
           errorCount++;

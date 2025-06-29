@@ -2,6 +2,7 @@ import { Attendance, AttendanceRegularization } from '@/types/attendance';
 import axios from 'axios';
 import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
+import { getApiUrl } from '../lib/api';
 
 interface RegularizationRequest extends AttendanceRegularization {
   attendance: Attendance;
@@ -16,7 +17,7 @@ export const useRegularization = () => {
   const fetchRequests = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get('/api/regularization');
+      const response = await axios.get(getApiUrl('/regularization'));
       setRequests(response.data);
       return response.data;
     } catch (error) {
@@ -38,7 +39,7 @@ export const useRegularization = () => {
       requestedCheckOut?: string;
     }) => {
       try {
-        const response = await axios.post('/api/regularization', requestData);
+        const response = await axios.post(getApiUrl('/regularization'), requestData);
         toast.success('Regularization request submitted successfully');
         return response.data;
       } catch (error) {
@@ -53,7 +54,7 @@ export const useRegularization = () => {
   // Approve a regularization request
   const approveRequest = useCallback(async (requestId: string, approvedBy: string) => {
     try {
-      const response = await axios.patch(`/api/regularization/${requestId}`, {
+      const response = await axios.patch(getApiUrl(`/regularization/${requestId}`), {
         status: 'APPROVED', // Will be normalized to 'Approved' by the API
         approvedBy, // API will accept but ignore these fields for now
         approvedDate: new Date().toISOString(),
@@ -84,7 +85,7 @@ export const useRegularization = () => {
   const rejectRequest = useCallback(
     async (requestId: string, approvedBy: string, rejectionReason: string) => {
       try {
-        const response = await axios.patch(`/api/regularization/${requestId}`, {
+        const response = await axios.patch(getApiUrl(`/regularization/${requestId}`), {
           status: 'REJECTED', // Will be normalized to 'Rejected' by the API
           approvedBy, // API will accept but ignore these fields for now
           approvedDate: new Date().toISOString(),
@@ -117,7 +118,7 @@ export const useRegularization = () => {
   // Get regularization requests for a specific employee
   const getEmployeeRequests = useCallback(async (empId: string) => {
     try {
-      const response = await axios.get(`/api/regularization?empId=${empId}`);
+      const response = await axios.get(getApiUrl(`/regularization?empId=${empId}`));
       return response.data;
     } catch (error) {
       console.error('Error fetching employee regularization requests:', error);
@@ -129,7 +130,7 @@ export const useRegularization = () => {
   // Get statistics for admin dashboard
   const getStats = useCallback(async () => {
     try {
-      const response = await axios.get('/api/regularization/stats');
+      const response = await axios.get(getApiUrl('/regularization/stats'));
       return response.data;
     } catch (error) {
       console.error('Error fetching regularization stats:', error);

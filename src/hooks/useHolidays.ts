@@ -2,6 +2,7 @@ import { Holiday, UseHolidaysReturn } from '@/types';
 import axios from 'axios';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { getApiUrl } from '../lib/api';
 
 // Helper function to format date to YYYY-MM-DD for API and input
 const toYYYYMMDD = (date: Date | string): string => {
@@ -21,7 +22,7 @@ export const useHolidays = (): UseHolidaysReturn => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await axios.get<Holiday[]>('/api/holidays');
+      const response = await axios.get<Holiday[]>(getApiUrl('/holidays'));
       const formattedHolidays = response.data.map(h => ({
         ...h,
         date: toYYYYMMDD(h.date),
@@ -41,7 +42,7 @@ export const useHolidays = (): UseHolidaysReturn => {
   const createHoliday = useCallback(async (holiday: Omit<Holiday, 'id'>): Promise<boolean> => {
     try {
       setError(null);
-      const response = await axios.post<Holiday>('/api/holidays', {
+      const response = await axios.post<Holiday>(getApiUrl('/holidays'), {
         name: holiday.name,
         date: holiday.date,
       });
@@ -67,7 +68,7 @@ export const useHolidays = (): UseHolidaysReturn => {
     async (id: string, holiday: Omit<Holiday, 'id'>): Promise<boolean> => {
       try {
         setError(null);
-        const response = await axios.put<Holiday>(`/api/holidays/${id}`, {
+        const response = await axios.put<Holiday>(getApiUrl(`/holidays/${id}`), {
           name: holiday.name,
           date: holiday.date,
         });
@@ -94,7 +95,7 @@ export const useHolidays = (): UseHolidaysReturn => {
   const deleteHoliday = useCallback(async (id: string): Promise<boolean> => {
     try {
       setError(null);
-      await axios.delete(`/api/holidays/${id}`);
+      await axios.delete(getApiUrl(`/holidays/${id}`));
 
       // Remove the holiday from the list
       setHolidays(prev => prev.filter(h => h.id !== id));

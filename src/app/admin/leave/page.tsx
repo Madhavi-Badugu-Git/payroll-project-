@@ -1,5 +1,6 @@
 'use client';
 import AppLayout from '@/app/AppLayout';
+import { getApiUrl } from '@/lib/api';
 import { ArrowLeftIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import Link from 'next/dist/client/link';
 import { useCallback, useEffect, useState } from 'react';
@@ -32,7 +33,7 @@ export default function LeaveAdminPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/leave');
+      const res = await fetch(getApiUrl('/leave'));
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Failed to fetch leave applications');
@@ -63,7 +64,7 @@ export default function LeaveAdminPage() {
 
   const handleAction = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     try {
-      const res = await fetch(`/api/leave/${id}`, {
+      const res = await fetch(getApiUrl(`/leave/${id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),

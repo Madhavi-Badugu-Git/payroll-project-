@@ -11,6 +11,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getApiUrl } from '../../lib/api';
 import AppLayout from '../AppLayout';
 
 // Enhanced interfaces for the new leave management system
@@ -106,7 +107,7 @@ export default function EnhancedLeavesPage() {
   // Fetch configurations
   const fetchConfigurations = useCallback(async () => {
     try {
-      const response = await fetch('/api/configurations');
+      const response = await fetch(getApiUrl('/configurations'));
       if (!response.ok) {
         throw new Error('Failed to fetch configurations');
       }
@@ -152,7 +153,7 @@ export default function EnhancedLeavesPage() {
     if (!user) return;
     setIsLoading(true);
     try {
-      const response = await fetch('/api/leave');
+      const response = await fetch(getApiUrl('/leave'));
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch leave data.');
@@ -199,7 +200,9 @@ export default function EnhancedLeavesPage() {
     if (!empId) return;
 
     try {
-      const response = await fetch(`/api/leave-management?empId=${empId}&year=${CURRENT_YEAR}`);
+      const response = await fetch(
+        getApiUrl(`/leave-management?empId=${empId}&year=${CURRENT_YEAR}`)
+      );
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch leave information.');
@@ -337,7 +340,7 @@ export default function EnhancedLeavesPage() {
     if (leaveToDeleteId) {
       setIsSubmitting(true);
       try {
-        const response = await fetch(`/api/leave/${leaveToDeleteId}`, {
+        const response = await fetch(getApiUrl(`/leave/${leaveToDeleteId}`), {
           method: 'DELETE',
         });
         if (!response.ok) {
@@ -363,7 +366,7 @@ export default function EnhancedLeavesPage() {
   const cancelLeave = async (leaveId: string) => {
     setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/leave/${leaveId}`, {
+      const response = await fetch(getApiUrl(`/leave/${leaveId}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'cancel' }),
@@ -424,7 +427,7 @@ export default function EnhancedLeavesPage() {
       reason: formData.reason,
     };
 
-    const url = editingLeave ? `/api/leave/${editingLeave.id}` : '/api/leave';
+    const url = editingLeave ? getApiUrl(`/leave/${editingLeave.id}`) : getApiUrl('/leave');
     const method = editingLeave ? 'PUT' : 'POST';
 
     try {
