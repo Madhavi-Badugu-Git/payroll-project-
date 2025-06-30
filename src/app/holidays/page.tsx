@@ -1,9 +1,9 @@
 'use client';
 
 import { useHolidays } from '@/hooks/useHolidays';
-import { hasAdminRole } from '@/lib/userutils';
+import { hasAdminRoleClient } from '@/lib/clientRoleUtils';
+import { RootState } from '@/store';
 import { Holiday } from '@/types';
-import { useUser } from '@clerk/nextjs';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
@@ -35,8 +35,9 @@ import {
 } from '@mui/material';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Calendar from 'react-calendar';
+import { useSelector } from 'react-redux';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import AppLayout from '../AppLayout';
@@ -66,7 +67,7 @@ const formatDateAndGetDay = (dateString: string): { formattedDate: string; dayNa
 };
 
 export default function HolidaysPage() {
-  const { user } = useUser();
+  const reduxUser = useSelector((state: RootState) => state.user.user);
 
   // Use custom hook for holidays data management
   const { holidays, isLoading, error, createHoliday, updateHoliday, deleteHoliday } = useHolidays();
@@ -82,7 +83,7 @@ export default function HolidaysPage() {
   const [holidayDate, setHolidayDate] = useState(toYYYYMMDD(new Date()));
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [holidayToDelete, setHolidayToDelete] = useState<Holiday | null>(null);
-  const isAdmin = useMemo(() => (user ? hasAdminRole(user) : false), [user]);
+  const isAdmin = hasAdminRoleClient(reduxUser);
 
   // Update holiday dates set when holidays change
   useEffect(() => {

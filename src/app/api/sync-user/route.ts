@@ -1,6 +1,8 @@
 import { PrismaClient } from '@/generated/prisma';
+import { authOptions } from '@/lib/auth/config';
 import { logDebug, logError, logInfo } from '@/lib/logger';
-import { clerkClient } from '@clerk/nextjs/server';
+import { UserSyncResponse } from '@/store/userSlice';
+import { getServerSession } from 'next-auth/next';
 import { NextRequest, NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
@@ -16,88 +18,65 @@ export async function POST(request: NextRequest) {
 
     logDebug(`Attempting to sync user ${userId}`);
 
-    // Get user data from Clerk
-    let user;
-    try {
-      const client = await clerkClient();
-      user = await client.users.getUser(userId);
-    } catch (clerkError) {
-      logError(`Error fetching user from Clerk: ${userId}`, clerkError);
-      return NextResponse.json(
-        {
-          error: 'Failed to fetch user from Clerk',
-          details: clerkError instanceof Error ? clerkError.message : 'Unknown Clerk error',
-        },
-        { status: 500 }
-      );
+    // Get the session from NextAuth
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
+      logError('User sync request without valid session');
+      return NextResponse.json({ error: 'Unauthorized - No session found' }, { status: 401 });
     }
 
-    if (!user) {
-      logError(`User not found in Clerk: ${userId}`);
-      return NextResponse.json({ error: 'User not found in Clerk' }, { status: 404 });
+    // Validate that the userId matches the session user
+    if (userId !== session.user.id) {
+      logError(`User ID mismatch: session=${session.user.id}, requested=${userId}`);
+      return NextResponse.json({ error: 'Unauthorized - User ID mismatch' }, { status: 401 });
     }
 
-    // Check if user has email addresses
-    if (!user.emailAddresses || user.emailAddresses.length === 0) {
-      logError(`User has no email addresses: ${userId}`);
-      return NextResponse.json({ error: 'User has no email addresses' }, { status: 400 });
-    }
-
-    // Upsert user in database
+    // Find the user in the database with roles
     let dbUser;
     try {
-      dbUser = await prisma.user.upsert({
-        where: { clerkId: userId },
-        update: {
-          email: user.emailAddresses[0].emailAddress,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          imageUrl: user.imageUrl,
-        },
-        create: {
-          clerkId: userId,
-          email: user.emailAddresses[0].emailAddress,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          imageUrl: user.imageUrl,
+      dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          userRoles: {
+            include: {
+              role: true,
+            },
+          },
         },
       });
+
+      if (!dbUser) {
+        logError(`User not found in database: ${userId}`);
+        return NextResponse.json({ error: 'User not found in database' }, { status: 404 });
+      }
     } catch (dbError) {
-      logError(`Error upserting user in database: ${userId}`, dbError);
-      return NextResponse.json(
-        {
-          error: 'Failed to save user to database',
-          details: dbError instanceof Error ? dbError.message : 'Unknown database error',
-        },
-        { status: 500 }
-      );
+      logError(`Database error while fetching user: ${userId}`, dbError);
+      return NextResponse.json({ error: 'Database error while fetching user' }, { status: 500 });
     }
 
-    // Try to link with employee record by matching email
+    // Try to find a linked employee by matching email
     let linkedEmployee = null;
     try {
-      const employee = await prisma.employee.findUnique({
-        where: { officeEmail: dbUser.email },
+      const employee = await prisma.employee.findFirst({
+        where: {
+          OR: [{ email: dbUser.email }, { personalEmail: dbUser.email }],
+        },
       });
 
-      if (employee && !employee.userId) {
-        // Link the employee with the user
-        linkedEmployee = await prisma.employee.update({
-          where: { id: employee.id },
-          data: { userId: dbUser.id },
-        });
+      if (employee) {
+        linkedEmployee = {
+          id: employee.id,
+          empId: employee.empId,
+          name: `${employee.firstName} ${employee.lastName}`,
+          designation: employee.currentDesignation,
+        };
 
-        logInfo('Employee linked to user', {
+        logInfo('Employee found for user', {
           userId,
           employeeId: employee.id,
           empId: employee.empId,
           email: dbUser.email,
-        });
-      } else if (employee && employee.userId) {
-        logDebug('Employee already linked to another user', {
-          employeeId: employee.id,
-          existingUserId: employee.userId,
-          newUserId: dbUser.id,
         });
       } else {
         logDebug('No employee found with matching email', {
@@ -106,40 +85,41 @@ export async function POST(request: NextRequest) {
       }
     } catch (employeeLinkError) {
       logError(
-        `Error linking employee to user for ${userId} with email ${dbUser.email}`,
+        `Error finding employee for user ${userId} with email ${dbUser.email}`,
         employeeLinkError
       );
-      // Don't fail the entire sync if employee linking fails
+      // Don't fail the entire sync if employee lookup fails
     }
 
     logInfo('User synced successfully', {
       userId,
       dbUserId: dbUser.id,
       email: dbUser.email,
-      isNewUser: dbUser.createdAt.getTime() === dbUser.updatedAt.getTime(),
       linkedEmployee: linkedEmployee
         ? {
             id: linkedEmployee.id,
             empId: linkedEmployee.empId,
-            name: `${linkedEmployee.firstName} ${linkedEmployee.lastName}`,
+            name: linkedEmployee.name,
           }
         : null,
     });
 
-    return NextResponse.json({
+    const response: UserSyncResponse = {
       success: true,
-      user: dbUser,
-      linkedEmployee: linkedEmployee
-        ? {
-            id: linkedEmployee.id,
-            empId: linkedEmployee.empId,
-            name: `${linkedEmployee.firstName} ${linkedEmployee.lastName}`,
-            designation: linkedEmployee.currentDesignation,
-          }
-        : null,
-    });
+      user: {
+        id: dbUser.id,
+        email: dbUser.email,
+        firstName: dbUser.firstName,
+        lastName: dbUser.lastName,
+        imageUrl: dbUser.imageUrl,
+        roles: dbUser.userRoles.map(userRole => userRole.role.roleName),
+      },
+      linkedEmployee,
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
     logError('Error syncing user', error);
-    return NextResponse.json({ error: 'Failed to sync user' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error during user sync' }, { status: 500 });
   }
 }

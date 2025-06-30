@@ -1,9 +1,11 @@
 'use client';
 
-import { SignedIn, SignedOut } from '@clerk/nextjs';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 
 export default function Footer() {
+  const { status } = useSession();
+
   return (
     <footer className='w-full bg-gray-800 text-white py-6 mt-auto'>
       <div className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8'>
@@ -29,25 +31,27 @@ export default function Footer() {
                   Holidays
                 </Link>
               </li>
-              <SignedIn>
+              {status === 'authenticated' && (
+                <>
+                  <li>
+                    <Link href='/leaves' className='hover:text-blue-300'>
+                      Leaves
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href='/payslip' className='hover:text-blue-300'>
+                      Payslips
+                    </Link>
+                  </li>
+                </>
+              )}
+              {status === 'unauthenticated' && (
                 <li>
-                  <Link href='/leaves' className='hover:text-blue-300'>
-                    Leaves
-                  </Link>
-                </li>
-                <li>
-                  <Link href='/payslip' className='hover:text-blue-300'>
-                    Payslips
-                  </Link>
-                </li>
-              </SignedIn>
-              <SignedOut>
-                <li>
-                  <Link href='/' className='hover:text-blue-300'>
+                  <Link href='/auth/signin' className='hover:text-blue-300'>
                     Sign In
                   </Link>
                 </li>
-              </SignedOut>
+              )}
             </ul>
           </div>
 

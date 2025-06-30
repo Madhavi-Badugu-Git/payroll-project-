@@ -1,20 +1,23 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { useCallback, useState } from 'react';
-import { toast } from 'react-toastify';
+import { useSelector } from 'react-redux';
 import { getApiUrl } from '../lib/api';
+import { RootState } from '../store';
 
-// Types specific to the attendance page
 export interface AttendanceEntry {
   id: string;
   employeeId: string;
-  date: string; // ISO Date string (e.g., "2023-10-27T00:00:00.000Z")
-  checkIn?: string | null; // ISO DateTime string
-  checkOut?: string | null; // ISO DateTime string
-  status: string;
-  totalHours?: number | null;
-  overtimeHours?: number | null;
-  regularizationStatus?: string | null; // e.g., 'Pending', 'Approved', 'Rejected'
+  date: string;
+  checkIn: string | null;
+  checkOut: string | null;
+  status: string; // Can be 'Present', 'Absent', 'Leave', 'Weekend', 'Holiday Name', etc.
+  totalHours: number | null;
+  overtimeHours: number | null;
+  workingHours?: number; // Keep for backward compatibility
+  remarks?: string;
+  leaveType?: string;
   isRegularizationAllowed?: boolean;
+  regularizationStatus?: string;
 }
 
 export interface LeaveApplicationData {
@@ -24,240 +27,168 @@ export interface LeaveApplicationData {
   reason: string;
 }
 
-export interface RegularizationRequestData {
-  attendanceId: string;
-  date: string;
-  reason: string;
-  requestedCheckIn: string | null;
-  requestedCheckOut: string | null;
-}
-
-export interface AttendanceActionPayload {
-  employeeId: string;
-  date: string;
-  type: 'checkIn' | 'checkOut';
-  time: string;
-}
-
-export interface UseAttendanceReturn {
-  // Data
+interface UseAttendanceReturn {
   attendanceLog: AttendanceEntry[];
-  todayRecord: AttendanceEntry | undefined;
+  todayRecord: AttendanceEntry | null;
   isLoading: boolean;
   error: string | null;
-
-  // Actions
-  fetchAttendanceLog: (date: Date, employeeId: string) => Promise<void>;
-  handleAttendanceAction: (type: 'checkIn' | 'checkOut', employeeId: string) => Promise<boolean>;
-  submitLeaveApplication: (data: LeaveApplicationData, employeeId: string) => Promise<boolean>;
-  submitRegularizationRequest: (data: RegularizationRequestData) => Promise<boolean>;
-
-  // Utility
-  refreshAttendanceLog: () => Promise<void>;
+  fetchAttendanceLog: (month: Date) => Promise<void>;
+  handleAttendanceAction: (
+    action: 'check-in' | 'check-out',
+    time?: string,
+    remarks?: string
+  ) => Promise<void>;
+  submitLeaveApplication: (data: LeaveApplicationData) => Promise<boolean>;
+  submitRegularizationRequest: (
+    id: string,
+    data: { checkIn?: string; checkOut?: string; reason: string }
+  ) => Promise<boolean>;
 }
 
-export const useAttendance = (): UseAttendanceReturn => {
-  const [attendanceLog, setAttendanceLog] = useState<AttendanceEntry[]>([]);
-  const [todayRecord, setTodayRecord] = useState<AttendanceEntry | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentViewedMonth, setCurrentViewedMonth] = useState<Date>(new Date());
-  const [currentEmployeeId, setCurrentEmployeeId] = useState<string>('');
+const getAxiosErrorMessage = (error: unknown): string => {
+  if (error instanceof AxiosError) {
+    if (error.response) {
+      return `${error.response.status} ${error.response.statusText}: ${
+        error.response.data?.error || error.response.data?.message || 'Server error'
+      }`;
+    } else if (error.request) {
+      return 'No response from server';
+    } else {
+      return error.message;
+    }
+  } else if (error instanceof Error) {
+    return error.message;
+  } else {
+    return 'Unknown error occurred';
+  }
+};
 
-  const todayDateOnlyString = new Date().toISOString().split('T')[0]; // YYYY-MM-DD for comparison
+export const useAttendance = (): UseAttendanceReturn => {
+  // Get employee ID from Redux state
+  const linkedEmployee = useSelector((state: RootState) => state.user.linkedEmployee);
+  const user = useSelector((state: RootState) => state.user.user);
+  const empId = linkedEmployee?.empId;
+
+  const [attendanceLog, setAttendanceLog] = useState<AttendanceEntry[]>([]);
+  const [todayRecord, setTodayRecord] = useState<AttendanceEntry | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchAttendanceLog = useCallback(
-    async (date: Date, employeeId: string) => {
-      if (!employeeId) {
-        setIsLoading(false);
-        return;
-      }
-
+    async (month: Date): Promise<void> => {
       setIsLoading(true);
       setError(null);
-      setCurrentViewedMonth(date);
-      setCurrentEmployeeId(employeeId);
 
       try {
-        const year = date.getFullYear();
-        const month = date.getMonth() + 1; // getMonth() is 0-indexed
-        const response = await axios.get<AttendanceEntry[]>(
-          getApiUrl(`/attendance?employeeId=${employeeId}&year=${year}&month=${month}`)
-        );
-
-        // Add client-side logic to determine if regularization is allowed
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const threeDaysAgo = new Date(today);
-        threeDaysAgo.setDate(today.getDate() - 3);
-
-        const processedData = response.data.map(entry => {
-          const entryDate = new Date(entry.date);
-          const isAllowed =
-            ((entry.status === 'Absent' || entry.status === 'Half Day') &&
-              entryDate >= threeDaysAgo &&
-              entryDate < today &&
-              !entry.regularizationStatus) ||
-            true;
-          return { ...entry, isRegularizationAllowed: isAllowed };
+        const url = getApiUrl('/attendance');
+        const params = new URLSearchParams({
+          employeeId: empId || '',
+          month: (month.getMonth() + 1).toString(),
+          year: month.getFullYear().toString(),
         });
 
-        setAttendanceLog(processedData);
+        const response = await axios.get<AttendanceEntry[]>(`${url}?${params}`);
+        setAttendanceLog(response.data);
 
-        // Update today's record
-        const currentDayEntry = processedData.find(entry =>
-          entry.date.startsWith(todayDateOnlyString)
-        );
-        setTodayRecord(currentDayEntry);
+        // Set today's record if it exists
+        const today = new Date().toISOString().split('T')[0];
+        const todaysEntry = response.data.find(entry => entry.date === today);
+        setTodayRecord(todaysEntry || null);
       } catch (err) {
-        const message = axios.isAxiosError(err)
-          ? err.response?.data?.error || err.message
-          : 'An unexpected error occurred while fetching attendance data';
-        setError(message);
-        console.error('Failed to fetch attendance log:', err);
+        setError(getAxiosErrorMessage(err));
       } finally {
         setIsLoading(false);
       }
     },
-    [todayDateOnlyString]
+    [empId]
   );
 
   const handleAttendanceAction = useCallback(
-    async (type: 'checkIn' | 'checkOut', employeeId: string): Promise<boolean> => {
-      if (!employeeId) {
-        toast.error('Employee ID is required');
-        return false;
-      }
-
+    async (action: 'check-in' | 'check-out', time?: string, remarks?: string): Promise<void> => {
       setError(null);
-      const now = new Date();
-      const payload: AttendanceActionPayload = {
-        employeeId,
-        date: todayDateOnlyString,
-        type,
-        time: now.toISOString(),
-      };
 
       try {
-        const response = await axios.post(getApiUrl('/attendance'), payload);
+        const url = getApiUrl('/attendance');
+        const now = new Date();
+        const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+        const currentTime = time || now.toISOString(); // Use provided time or current time
 
-        if (response.status === 200) {
-          toast.success(`${type === 'checkIn' ? 'Check-in' : 'Check-out'} successful!`);
+        // Convert action to the expected type format
+        const type = action === 'check-in' ? 'checkIn' : 'checkOut';
 
-          // Refresh attendance log to get updated data
-          if (currentEmployeeId) {
-            await fetchAttendanceLog(currentViewedMonth, currentEmployeeId);
-          }
+        const payload: {
+          employeeId: string | undefined;
+          userId: string | undefined;
+          date: string;
+          type: string;
+          time: string;
+          remarks?: string;
+        } = {
+          employeeId: empId,
+          userId: user?.id,
+          date: currentDate,
+          type: type,
+          time: currentTime,
+        };
 
-          return true;
+        if (remarks) {
+          payload.remarks = remarks;
         }
 
-        return false;
+        await axios.post(url, payload);
       } catch (err) {
-        const message = axios.isAxiosError(err)
-          ? err.response?.data?.error || err.message
-          : `An error occurred while performing ${type}`;
-        setError(message);
-        toast.error(message);
-        console.error(`Error in ${type}:`, err);
-        return false;
+        setError(getAxiosErrorMessage(err));
+        throw err;
       }
     },
-    [todayDateOnlyString, currentViewedMonth, currentEmployeeId, fetchAttendanceLog]
+    [empId, user?.id]
   );
 
   const submitLeaveApplication = useCallback(
-    async (data: LeaveApplicationData, employeeId: string): Promise<boolean> => {
-      if (!employeeId) {
-        toast.error('Employee ID is required');
-        return false;
-      }
-
+    async (data: LeaveApplicationData): Promise<boolean> => {
       setError(null);
 
       try {
-        const response = await axios.post(getApiUrl('/leave'), {
-          employeeId,
-          ...data,
-        });
-
-        if (response.status === 200 || response.status === 201) {
-          toast.success('Leave application submitted successfully!');
-
-          // Refresh attendance log to show leave status
-          if (currentEmployeeId) {
-            await fetchAttendanceLog(currentViewedMonth, currentEmployeeId);
-          }
-
-          return true;
-        }
-
-        return false;
+        const url = getApiUrl('/leave');
+        const payload = { ...data, empId };
+        await axios.post(url, payload);
+        return true;
       } catch (err) {
-        const message = axios.isAxiosError(err)
-          ? err.response?.data?.error || err.message
-          : 'Failed to submit leave application';
-        setError(message);
-        toast.error(message);
-        console.error('Failed to submit leave application:', err);
+        setError(getAxiosErrorMessage(err));
         return false;
       }
     },
-    [currentViewedMonth, currentEmployeeId, fetchAttendanceLog]
+    [empId]
   );
 
   const submitRegularizationRequest = useCallback(
-    async (data: RegularizationRequestData): Promise<boolean> => {
+    async (
+      id: string,
+      data: { checkIn?: string; checkOut?: string; reason: string }
+    ): Promise<boolean> => {
       setError(null);
 
       try {
-        const response = await axios.post(getApiUrl('/regularization'), data);
-
-        if (response.status === 200 || response.status === 201) {
-          toast.success('Regularization request submitted successfully!');
-
-          // Refresh attendance log to show updated status
-          if (currentEmployeeId) {
-            await fetchAttendanceLog(currentViewedMonth, currentEmployeeId);
-          }
-
-          return true;
-        }
-
-        return false;
+        const url = getApiUrl(`/attendance/${id}`);
+        const payload = { ...data, empId, userId: user?.id };
+        await axios.put(url, payload);
+        return true;
       } catch (err) {
-        const message = axios.isAxiosError(err)
-          ? err.response?.data?.error || err.message
-          : 'Failed to submit regularization request';
-        setError(message);
-        toast.error(message);
-        console.error('Failed to submit regularization request:', err);
+        setError(getAxiosErrorMessage(err));
         return false;
       }
     },
-    [currentViewedMonth, currentEmployeeId, fetchAttendanceLog]
+    [empId, user?.id]
   );
 
-  const refreshAttendanceLog = useCallback(async () => {
-    if (currentEmployeeId) {
-      await fetchAttendanceLog(currentViewedMonth, currentEmployeeId);
-    }
-  }, [currentViewedMonth, currentEmployeeId, fetchAttendanceLog]);
-
   return {
-    // Data
     attendanceLog,
     todayRecord,
     isLoading,
     error,
-
-    // Actions
     fetchAttendanceLog,
     handleAttendanceAction,
     submitLeaveApplication,
     submitRegularizationRequest,
-
-    // Utility
-    refreshAttendanceLog,
   };
 };

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@/generated/prisma';
+import { logError } from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
@@ -50,10 +51,10 @@ export async function GET(request: NextRequest) {
             empId: true,
             firstName: true,
             lastName: true,
-            officeEmail: true,
+            email: true,
             currentDesignation: true,
             stream: true,
-            joiningDate: true,
+            dateOfJoining: true,
           },
         },
       },
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
       totalPages: Math.ceil(totalCount / limit),
     });
   } catch (error) {
-    console.error('Error fetching payslips:', error);
+    logError('Error fetching payslips', error);
     return NextResponse.json({ error: 'Failed to fetch payslips' }, { status: 500 });
   }
 }
@@ -213,10 +214,10 @@ export async function POST(request: NextRequest) {
             empId: true,
             firstName: true,
             lastName: true,
-            officeEmail: true,
+            email: true,
             currentDesignation: true,
             stream: true,
-            joiningDate: true,
+            dateOfJoining: true,
           },
         },
       },
@@ -251,7 +252,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(transformedPayslip, { status: 201 });
   } catch (error) {
-    console.error('Error creating payslip:', error);
+    logError('Error creating payslip', error);
     return NextResponse.json({ error: 'Failed to create payslip' }, { status: 500 });
   }
 }

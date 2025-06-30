@@ -1,4 +1,5 @@
 import { PrismaClient } from '@/generated/prisma';
+import { logError } from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json(employee);
   } catch (error) {
-    console.error('Error fetching employee:', error);
+    logError('Error fetching employee', error);
     return NextResponse.json({ error: 'Failed to fetch employee' }, { status: 500 });
   }
 }
@@ -69,10 +70,37 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'All required fields must be provided' }, { status: 400 });
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(officeEmail)) {
+      return NextResponse.json(
+        {
+          error: 'Invalid office email format',
+        },
+        { status: 400 }
+      );
+    }
+
+    // If email is being changed, check if a user with the new email exists
+    if (existingEmployeeRecord.email !== officeEmail) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: officeEmail },
+      });
+
+      if (!existingUser) {
+        return NextResponse.json(
+          {
+            error: `User is not registered with this email ID: ${officeEmail}. Please ensure the user is registered in the system before updating the employee record.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // Check if officeEmail already exists for other employees (empId shouldn't change)
     const existingEmployee = await prisma.employee.findFirst({
       where: {
-        AND: [{ id: { not: id } }, { officeEmail: officeEmail }],
+        AND: [{ id: { not: id } }, { email: officeEmail }],
       },
     });
 
@@ -88,12 +116,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       data: {
         firstName,
         lastName,
-        officeEmail,
+        email: officeEmail,
         personalEmail: personalEmail || null,
         mobileNo,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-        salary: salary ? parseFloat(salary) : null,
-        joiningDate: new Date(joiningDate),
+        currentSalary: salary ? parseFloat(salary) : null,
+        dateOfJoining: new Date(joiningDate),
         exitDate: exitDate ? new Date(exitDate) : null,
         status,
         currentDesignation,
@@ -106,7 +134,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json(employee);
   } catch (error) {
-    console.error('Error updating employee:', error);
+    logError('Error updating employee', error);
     return NextResponse.json({ error: 'Failed to update employee' }, { status: 500 });
   }
 }
@@ -195,7 +223,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Employee deleted successfully' });
   } catch (error) {
-    console.error('Error deleting employee:', error);
+    logError('Error deleting employee', error);
 
     // Check if it's a foreign key constraint error
     if (error instanceof Error && error.message.includes('Foreign key constraint')) {

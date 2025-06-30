@@ -2,7 +2,6 @@
 
 import { useDashboard } from '@/hooks/useDashboard';
 import { formatDate } from '@/lib/dateUtils';
-import { useUser } from '@clerk/nextjs';
 import {
   ArrowRightIcon,
   BellIcon,
@@ -17,11 +16,12 @@ import {
   UserGroupIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import AppLayout from '../AppLayout';
 
 export default function DashboardPage() {
-  const { user } = useUser();
+  const { data: session } = useSession();
   const { leaveSummary, nextHoliday, isLoading } = useDashboard();
 
   const CURRENT_YEAR = new Date().getFullYear();
@@ -42,7 +42,7 @@ export default function DashboardPage() {
     }
   };
 
-  if (!user) {
+  if (!session?.user) {
     return (
       <AppLayout>
         <div className='p-4 md:p-8'>
@@ -58,7 +58,7 @@ export default function DashboardPage() {
         {/* Header */}
         <div className='mb-8'>
           <h1 className='text-3xl font-bold text-gray-900 dark:text-white mb-2'>
-            Welcome back, {user.firstName || user.username}! 👋
+            Welcome back, {session.user.firstName || session.user.name}! 👋
           </h1>
           <p className='text-gray-600 dark:text-gray-400'>
             Here&apos;s what&apos;s happening with your payroll today.

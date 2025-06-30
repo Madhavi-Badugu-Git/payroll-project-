@@ -1,5 +1,7 @@
-import { auth } from '@clerk/nextjs/server';
+import { authOptions } from '@/lib/auth/config';
+import { getServerSession } from 'next-auth/next';
 import { NextRequest, NextResponse } from 'next/server';
+import { logError } from '@/lib/logger';
 import { PrismaClient } from '../../../generated/prisma';
 
 const prisma = new PrismaClient();
@@ -7,8 +9,8 @@ const prisma = new PrismaClient();
 // GET - Fetch all configurations
 export async function GET() {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -20,7 +22,7 @@ export async function GET() {
 
     return NextResponse.json({ configurations });
   } catch (error) {
-    console.error('Error fetching configurations:', error);
+    logError('Error fetching configurations', error);
     return NextResponse.json({ error: 'Failed to fetch configurations' }, { status: 500 });
   }
 }
@@ -28,8 +30,8 @@ export async function GET() {
 // POST - Create a new configuration
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -63,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ configuration }, { status: 201 });
   } catch (error) {
-    console.error('Error creating configuration:', error);
+    logError('Error creating configuration', error);
     return NextResponse.json({ error: 'Failed to create configuration' }, { status: 500 });
   }
 }

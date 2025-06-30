@@ -1,6 +1,8 @@
 import axios, { AxiosError } from 'axios';
 import { useCallback, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { getApiUrl } from '../lib/api';
+import { RootState } from '../store';
 
 export interface LeaveEntry {
   id: string;
@@ -108,6 +110,10 @@ interface UseLeavesReturn {
  * @returns {UseLeavesReturn} Hook state and functions for leave operations
  */
 export const useLeaves = (): UseLeavesReturn => {
+  // Get employee ID from Redux state
+  const linkedEmployee = useSelector((state: RootState) => state.user.linkedEmployee);
+  const empId = linkedEmployee?.empId;
+
   const [leaves, setLeaves] = useState<LeaveEntry[]>([]);
   const [leaveInfo, setLeaveInfo] = useState<LeaveInfo>({
     balance: null,
@@ -175,7 +181,10 @@ export const useLeaves = (): UseLeavesReturn => {
 
     try {
       const url = getApiUrl('/leave');
-      const response = await axios.get<Omit<LeaveEntry, 'noOfDays' | 'appliedDate'>[]>(url);
+      const params = empId ? `?empId=${empId}` : '';
+      const response = await axios.get<Omit<LeaveEntry, 'noOfDays' | 'appliedDate'>[]>(
+        `${url}${params}`
+      );
 
       const processedLeaves = response.data.map(leave => {
         const from = new Date(leave.startDate);
@@ -234,7 +243,7 @@ export const useLeaves = (): UseLeavesReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [empId]);
 
   const fetchLeaveInfo = useCallback(async (empId: string, year: number): Promise<void> => {
     try {
@@ -273,7 +282,8 @@ export const useLeaves = (): UseLeavesReturn => {
 
       try {
         const url = getApiUrl('/leave');
-        const response = await axios.post(url, leaveData);
+        const payload = { ...leaveData, empId };
+        const response = await axios.post(url, payload);
 
         console.log('Leave created successfully:', {
           leaveData,
@@ -312,7 +322,7 @@ export const useLeaves = (): UseLeavesReturn => {
         setIsSubmitting(false);
       }
     },
-    [fetchLeaves]
+    [fetchLeaves, empId]
   );
 
   const updateLeave = useCallback(
@@ -328,7 +338,8 @@ export const useLeaves = (): UseLeavesReturn => {
 
       try {
         const url = getApiUrl(`/leave/${leaveId}`);
-        const response = await axios.put(url, leaveData);
+        const payload = { ...leaveData, empId };
+        const response = await axios.put(url, payload);
 
         console.log('Leave updated successfully:', {
           leaveId,
@@ -369,7 +380,7 @@ export const useLeaves = (): UseLeavesReturn => {
         setIsSubmitting(false);
       }
     },
-    [fetchLeaves]
+    [fetchLeaves, empId]
   );
 
   const deleteLeave = useCallback(

@@ -1,11 +1,10 @@
 'use client';
 
 import { usePayslips } from '@/hooks/usePayslips';
-import { getEmployeeIdFromUser } from '@/lib/userutils';
 import { DetailedPayslip } from '@/types';
-import { useUser } from '@clerk/nextjs'; // Import useUser
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import jsPDF from 'jspdf';
+import { useSession } from 'next-auth/react'; // Import useSession
 import Link from 'next/link';
 import { useEffect } from 'react';
 import Loader from '../../../components/Loader';
@@ -186,12 +185,13 @@ const generatePayslipPDF = (payslip: DetailedPayslip) => {
 };
 
 export default function PayslipsPage() {
-  const { user } = useUser(); // Get the logged-in user
+  const { data: session } = useSession(); // Get the logged-in user
   const { payslips: userPayslips, isLoading, error, fetchPayslips } = usePayslips();
+  const user = session?.user;
 
   // Function to get employee ID from user
-  const getUserEmployeeId = (user: { publicMetadata?: { empId?: string } }): string | null => {
-    return getEmployeeIdFromUser(user);
+  const getUserEmployeeId = (user: { employee?: { empId: string } | null }): string | null => {
+    return user?.employee?.empId || null;
   };
 
   useEffect(() => {

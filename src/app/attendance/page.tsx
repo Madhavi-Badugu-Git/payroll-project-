@@ -2,9 +2,11 @@
 
 import { AttendanceEntry, LeaveApplicationData, useAttendance } from '@/hooks/useAttendance';
 import { combineDateAndTime, formatInputTime, formatTime24 } from '@/lib/dateUtils';
-import { useUser } from '@clerk/nextjs';
+import { RootState } from '@/store';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import {
   Bar,
   BarChart,
@@ -46,7 +48,9 @@ const getStatusColorClass = (status?: string) => {
 };
 
 export default function AttendancePage() {
-  const { user } = useUser();
+  const { data: session } = useSession();
+  const user = session?.user;
+  const { linkedEmployee } = useSelector((state: RootState) => state.user);
   const {
     attendanceLog,
     todayRecord,
@@ -78,12 +82,12 @@ export default function AttendancePage() {
 
   const handleLeaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !user.id) {
+    if (!linkedEmployee?.empId) {
       return;
     }
     setLeaveSubmitting(true);
 
-    const success = await submitLeaveApplication(leaveForm, user.id);
+    const success = await submitLeaveApplication(leaveForm);
 
     if (success) {
       setIsLeaveModalOpen(false);
@@ -95,10 +99,10 @@ export default function AttendancePage() {
 
   // Use the hook's fetchAttendanceLog function
   useEffect(() => {
-    if (user && user.id) {
-      fetchAttendanceLog(viewedMonth, user.id);
+    if (linkedEmployee?.empId) {
+      fetchAttendanceLog(viewedMonth);
     }
-  }, [fetchAttendanceLog, viewedMonth, user]);
+  }, [fetchAttendanceLog, viewedMonth, linkedEmployee?.empId]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -132,15 +136,13 @@ export default function AttendancePage() {
       ? combineDateAndTime(entryDate, requestedCheckOut)
       : null;
 
-    const payload = {
-      attendanceId: selectedEntry.id,
-      date: selectedEntry.date,
+    const data = {
+      checkIn: checkInDateTime || undefined,
+      checkOut: checkOutDateTime || undefined,
       reason: regularizationReason,
-      requestedCheckIn: checkInDateTime,
-      requestedCheckOut: checkOutDateTime,
     };
 
-    const success = await submitRegularizationRequest(payload);
+    const success = await submitRegularizationRequest(selectedEntry.id, data);
 
     if (success) {
       setIsRegularizeModalOpen(false);
@@ -149,14 +151,14 @@ export default function AttendancePage() {
 
   // Use the hook's handleAttendanceAction function directly
   const handleCheckIn = () => {
-    if (user && user.id) {
-      handleAttendanceAction('checkIn', user.id);
+    if (linkedEmployee?.empId && user?.id) {
+      handleAttendanceAction('check-in');
     }
   };
 
   const handleCheckOut = () => {
-    if (user && user.id) {
-      handleAttendanceAction('checkOut', user.id);
+    if (linkedEmployee?.empId && user?.id) {
+      handleAttendanceAction('check-out');
     }
   };
 
@@ -215,7 +217,7 @@ export default function AttendancePage() {
         <div className='text-center p-10 text-red-500'>
           Error: {error}{' '}
           <button
-            onClick={() => user && user.id && fetchAttendanceLog(viewedMonth, user.id)}
+            onClick={() => user && user.id && fetchAttendanceLog(viewedMonth)}
             className='text-blue-500 underline ml-2'
           >
             Try again

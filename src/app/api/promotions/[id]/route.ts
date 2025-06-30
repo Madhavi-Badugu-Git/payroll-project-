@@ -1,5 +1,6 @@
 import { PrismaClient } from '@/generated/prisma';
 import { NextRequest, NextResponse } from 'next/server';
+import { logError } from '@/lib/logger';
 
 const prisma = new PrismaClient();
 
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             empId: true,
             firstName: true,
             lastName: true,
-            officeEmail: true,
+            email: true,
             currentDesignation: true,
           },
         },
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json(promotion);
   } catch (error) {
-    console.error('Error fetching promotion:', error);
+    logError('Error fetching promotion', error);
     return NextResponse.json({ error: 'Failed to fetch promotion' }, { status: 500 });
   }
 }
@@ -87,7 +88,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
               empId: true,
               firstName: true,
               lastName: true,
-              officeEmail: true,
+              email: true,
               currentDesignation: true,
             },
           },
@@ -105,7 +106,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         await tx.employee.update({
           where: { empId: empId },
           data: {
-            salary: parseFloat(salary),
+            currentSalary: parseFloat(salary),
             currentDesignation: currentPosition,
             updatedAt: new Date(),
           },
@@ -117,7 +118,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Error updating promotion:', error);
+    logError('Error updating promotion', error);
     return NextResponse.json({ error: 'Failed to update promotion' }, { status: 500 });
   }
 }
@@ -167,7 +168,7 @@ export async function DELETE(
           await tx.employee.update({
             where: { empId: existingPromotion.empId },
             data: {
-              salary: newMostRecentPromotion.salary,
+              currentSalary: newMostRecentPromotion.salary,
               currentDesignation: newMostRecentPromotion.currentPosition,
               updatedAt: new Date(),
             },
@@ -187,7 +188,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Promotion deleted successfully' });
   } catch (error) {
-    console.error('Error deleting promotion:', error);
+    logError('Error deleting promotion', error);
     return NextResponse.json({ error: 'Failed to delete promotion' }, { status: 500 });
   }
 }

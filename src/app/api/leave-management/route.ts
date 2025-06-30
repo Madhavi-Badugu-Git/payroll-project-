@@ -1,5 +1,6 @@
 import { LeaveManagementService } from '@/lib/leaveManagement';
 import { NextRequest, NextResponse } from 'next/server';
+import { logError } from '@/lib/logger';
 
 // GET - Get employee leave information
 export async function GET(request: NextRequest) {
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
     const leaveInfo = await LeaveManagementService.getEmployeeLeaveInfo(empId, year);
     return NextResponse.json(leaveInfo);
   } catch (error) {
-    console.error('Error fetching leave information:', error);
+    logError('Error fetching leave information', error);
     return NextResponse.json({ error: 'Failed to fetch leave information' }, { status: 500 });
   }
 }
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
-    console.error('Error processing leave management request:', error);
+    logError('Error processing leave management request', error);
     return NextResponse.json(
       { error: 'Failed to process leave management request' },
       { status: 500 }

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@/generated/prisma';
 import { NextRequest, NextResponse } from 'next/server';
+import { logError } from '@/lib/logger';
 
 const prisma = new PrismaClient();
 
@@ -161,7 +162,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error in bulk payslip creation:', error);
+    logError('Error in bulk payslip creation', error);
     return NextResponse.json({ error: 'Failed to process bulk payslips' }, { status: 500 });
   }
 }
@@ -189,7 +190,7 @@ export async function DELETE(request: NextRequest) {
       deletedCount: deleteResult.count,
     });
   } catch (error) {
-    console.error('Error in bulk payslip deletion:', error);
+    logError('Error in bulk payslip deletion', error);
     return NextResponse.json({ error: 'Failed to delete payslips' }, { status: 500 });
   }
 }

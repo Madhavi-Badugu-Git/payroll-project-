@@ -5,9 +5,11 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
 
-  // Base path for subdirectory deployment
-  basePath: '/payroll',
-  assetPrefix: '/payroll',
+  // Base path for subdirectory deployment (only in production)
+  ...(process.env.NODE_ENV === 'production' && {
+    basePath: '/payroll',
+    assetPrefix: '/payroll',
+  }),
 
   // Image optimization
   images: {

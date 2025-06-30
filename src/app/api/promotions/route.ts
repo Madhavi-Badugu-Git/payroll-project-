@@ -1,5 +1,6 @@
 import { PrismaClient } from '@/generated/prisma';
 import { NextRequest, NextResponse } from 'next/server';
+import { logError } from '@/lib/logger';
 
 const prisma = new PrismaClient();
 
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
             empId: true,
             firstName: true,
             lastName: true,
-            officeEmail: true,
+            email: true,
             currentDesignation: true,
           },
         },
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ promotions, totalCount });
   } catch (error) {
-    console.error('Error fetching promotions:', error);
+    logError('Error fetching promotions', error);
     return NextResponse.json({ error: 'Failed to fetch promotions' }, { status: 500 });
   }
 }
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
               empId: true,
               firstName: true,
               lastName: true,
-              officeEmail: true,
+              email: true,
               currentDesignation: true,
             },
           },
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
       await tx.employee.update({
         where: { empId: empId },
         data: {
-          salary: parseFloat(salary),
+          currentSalary: parseFloat(salary),
           currentDesignation: currentPosition,
           updatedAt: new Date(),
         },
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    console.error('Error creating promotion:', error);
+    logError('Error creating promotion', error);
     return NextResponse.json({ error: 'Failed to create promotion' }, { status: 500 });
   }
 }

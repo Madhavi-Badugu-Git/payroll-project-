@@ -53,9 +53,6 @@ export const UserDataExample = () => {
           <strong>Email:</strong> {user.email}
         </p>
         <p>
-          <strong>Clerk ID:</strong> {user.clerkId}
-        </p>
-        <p>
           <strong>Database ID:</strong> {user.id}
         </p>
       </div>

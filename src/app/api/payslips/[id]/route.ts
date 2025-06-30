@@ -1,5 +1,6 @@
 import { PrismaClient } from '@/generated/prisma';
 import { NextRequest, NextResponse } from 'next/server';
+import { logError } from '@/lib/logger';
 
 const prisma = new PrismaClient();
 
@@ -16,10 +17,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
             empId: true,
             firstName: true,
             lastName: true,
-            officeEmail: true,
+            email: true,
             currentDesignation: true,
             stream: true,
-            joiningDate: true,
+            dateOfJoining: true,
           },
         },
       },
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 
     return NextResponse.json(transformedPayslip);
   } catch (error) {
-    console.error('Error fetching payslip:', error);
+    logError('Error fetching payslip', error);
     return NextResponse.json({ error: 'Failed to fetch payslip' }, { status: 500 });
   }
 }
@@ -133,10 +134,10 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
             empId: true,
             firstName: true,
             lastName: true,
-            officeEmail: true,
+            email: true,
             currentDesignation: true,
             stream: true,
-            joiningDate: true,
+            dateOfJoining: true,
           },
         },
       },
@@ -176,7 +177,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
     return NextResponse.json(transformedPayslip);
   } catch (error) {
-    console.error('Error updating payslip:', error);
+    logError('Error updating payslip', error);
     return NextResponse.json({ error: 'Failed to update payslip' }, { status: 500 });
   }
 }
@@ -201,7 +202,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
 
     return NextResponse.json({ message: 'Payslip deleted successfully' });
   } catch (error) {
-    console.error('Error deleting payslip:', error);
+    logError('Error deleting payslip', error);
     return NextResponse.json({ error: 'Failed to delete payslip' }, { status: 500 });
   }
 }

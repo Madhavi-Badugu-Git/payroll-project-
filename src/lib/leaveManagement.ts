@@ -188,13 +188,13 @@ export class LeaveManagementService {
     const activeEmployees = await prisma.employee.findMany({
       where: {
         status: 'Active',
-        joiningDate: {
+        dateOfJoining: {
           lt: new Date(currentYear, currentMonth - 1, 1), // Joined before this month
         },
       },
       select: {
         empId: true,
-        joiningDate: true,
+        dateOfJoining: true,
       },
     });
 

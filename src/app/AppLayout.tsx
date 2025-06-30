@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
+import { useSession } from 'next-auth/react';
 import { ReactNode, useState } from 'react';
 import Footer from './Footer';
 import Header from './Header';
@@ -11,7 +11,8 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
-  const { isSignedIn } = useUser();
+  const { status } = useSession();
+  const isSignedIn = status === 'authenticated';
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const toggleSidebar = () => {

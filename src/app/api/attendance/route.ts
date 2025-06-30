@@ -1,14 +1,16 @@
 import { Prisma } from '@/generated/prisma';
+import { authOptions } from '@/lib/auth/config';
 import { calculateHours, calculateOvertimeHours, getAttendanceStatus } from '@/lib/dateUtils';
+import { logDebug, logError, logInfo } from '@/lib/logger';
 import prisma from '@/lib/prisma';
-import { getAuth } from '@clerk/nextjs/server';
+import { getServerSession } from 'next-auth/next';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/attendance - Fetches attendance records for the logged-in user
 export async function GET(req: NextRequest) {
-  const { userId } = getAuth(req);
+  const session = await getServerSession(authOptions);
 
-  if (!userId) {
+  if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -132,65 +134,59 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(fullMonthAttendance);
   } catch (error) {
-    console.error('Error fetching attendance:', error);
+    logError('Error fetching attendance', error);
     return NextResponse.json({ error: 'Failed to fetch attendance' }, { status: 500 });
   }
 }
 
 // POST /api/attendance - Creates or updates an attendance record (check-in/check-out)
 export async function POST(req: NextRequest) {
-  const { userId } = getAuth(req);
+  const session = await getServerSession(authOptions);
 
-  if (!userId) {
+  if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
     const body = await req.json();
-    const { employeeId, date, type, time } = body;
+    const { employeeId, userId, date, type, time } = body;
 
-    // Find the employee record to get the correct empId
-    let actualEmployeeId = employeeId;
+    // Find the employee record
+    let employee = null;
 
-    // If employeeId looks like a Clerk user ID, try to find the employee by userId
-    if (employeeId && employeeId.startsWith('user_')) {
-      const user = await prisma.user.findUnique({
-        where: { clerkId: employeeId },
-        include: {
-          employee: {
-            select: { empId: true },
-          },
-        },
+    if (employeeId) {
+      // If employeeId (empId) is provided, use it directly
+      employee = await prisma.employee.findUnique({
+        where: { empId: employeeId },
       });
-
-      if (user?.employee?.empId) {
-        actualEmployeeId = user.employee.empId;
-      } else {
-        // Try to find employee by userId directly
-        const employee = await prisma.employee.findFirst({
-          where: { userId: employeeId },
-        });
-        if (employee) {
-          actualEmployeeId = employee.empId;
-        }
-      }
     }
 
-    // Validate that we found a valid employee
-    const employee = await prisma.employee.findUnique({
-      where: { empId: actualEmployeeId },
-    });
-
+    // If employee not found by empId, try to find by session user email as fallback
     if (!employee) {
+      employee = await prisma.employee.findUnique({
+        where: { email: session.user.email! },
+      });
+    }
+
+    // Final validation - make sure we have a valid employee
+    if (!employee) {
+      logError('Employee record not found', {
+        providedEmployeeId: employeeId,
+        providedUserId: userId,
+        sessionUserEmail: session.user.email,
+      });
       return NextResponse.json(
-        { error: 'Employee record not found. Please sync your user account first.' },
+        {
+          error:
+            'Employee record not found. Please ensure your user account is linked to an employee record.',
+        },
         { status: 404 }
       );
     }
 
-    if (!actualEmployeeId || !date || !type || !time) {
+    if (!date || !type || !time) {
       return NextResponse.json(
-        { error: 'Missing required fields (employeeId, date, type, time)' },
+        { error: 'Missing required fields (date, type, time)' },
         { status: 400 }
       );
     }
@@ -238,7 +234,7 @@ export async function POST(req: NextRequest) {
 
     const existingRecord = await prisma.attendance.findFirst({
       where: {
-        employeeId: actualEmployeeId,
+        employeeId: employee.empId,
         date: attendanceDate,
       },
     });
@@ -282,10 +278,10 @@ export async function POST(req: NextRequest) {
           : null;
 
     if (checkInTime && checkOutTime) {
-      console.log('Calculating hours for attendance:', {
+      logDebug('Calculating hours for attendance', {
         checkInTime: checkInTime.toISOString(),
         checkOutTime: checkOutTime.toISOString(),
-        employeeId: actualEmployeeId,
+        employeeId: employee.empId,
         date: attendanceDate.toISOString(),
       });
 
@@ -294,17 +290,19 @@ export async function POST(req: NextRequest) {
         dataToUpdate.totalHours = 0;
         dataToUpdate.overtimeHours = 0;
         currentStatus = 'Error: Checkout before Checkin';
-        console.log('Invalid time range: checkout before checkin');
+        logInfo('Invalid time range: checkout before checkin');
       } else {
         const totalHours = calculateHours(checkInTime, checkOutTime);
         dataToUpdate.totalHours = totalHours;
         dataToUpdate.overtimeHours = calculateOvertimeHours(totalHours);
         currentStatus = getAttendanceStatus(totalHours);
 
-        console.log('Calculated hours for attendance:', {
-          totalHours: dataToUpdate.totalHours,
-          overtimeHours: dataToUpdate.overtimeHours,
-          status: currentStatus,
+        logDebug('Calculated hours for attendance:', {
+          data: {
+            totalHours: dataToUpdate.totalHours,
+            overtimeHours: dataToUpdate.overtimeHours,
+            status: currentStatus,
+          },
         });
       }
     } else if (checkInTime && !checkOutTime) {
@@ -312,13 +310,13 @@ export async function POST(req: NextRequest) {
       currentStatus = 'Present';
       dataToUpdate.totalHours = null; // No check-out to calculate total hours
       dataToUpdate.overtimeHours = null;
-      console.log('Only check-in exists, setting status to Present');
+      logInfo('Only check-in exists, setting status to Present');
     } else if (!checkInTime && checkOutTime) {
       // Only check-out exists (unusual case - forgot to check-in)
       currentStatus = 'Absent'; // Or could be 'Missed Check-in'
       dataToUpdate.totalHours = null; // No check-in to calculate total hours
       dataToUpdate.overtimeHours = null;
-      console.log('Only check-out exists, setting status to Absent');
+      logInfo('Only check-out exists, setting status to Absent');
     }
     // If neither checkInTime nor checkOutTime (e.g. manual status update in future), status remains as initialized.
 
@@ -334,7 +332,7 @@ export async function POST(req: NextRequest) {
     } else {
       // Creating a new record
       const dataToCreate: Prisma.AttendanceCreateInput = {
-        employeeId: actualEmployeeId,
+        employeeId: employee.empId,
         date: attendanceDate,
         status: currentStatus, // Status determined by the logic above
         checkIn: type === 'checkIn' ? actionTime : null,
@@ -351,7 +349,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(updatedRecord);
   } catch (error) {
-    console.error('Error processing attendance:', error);
+    logError('Error processing attendance', error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       return NextResponse.json(
         { error: `Database error: ${error.message}`, code: error.code },

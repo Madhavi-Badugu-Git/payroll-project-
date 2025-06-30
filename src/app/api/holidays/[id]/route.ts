@@ -1,6 +1,7 @@
 import { Prisma } from '@/generated/prisma';
 import prisma from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
+import { logError } from '@/lib/logger';
 
 // GET /api/holidays - Fetches all holidays
 export async function GET() {
@@ -12,7 +13,7 @@ export async function GET() {
     });
     return NextResponse.json(holidays);
   } catch (error) {
-    console.error('Error fetching holidays:', error);
+    logError('Error fetching holidays', error);
     return NextResponse.json({ error: 'Failed to fetch holidays' }, { status: 500 });
   }
 }
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(newHoliday, { status: 201 });
   } catch (error) {
-    console.error('Error creating holiday:', error);
+    logError('Error creating holiday', error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       // Handle specific Prisma errors, e.g., unique constraints if added to model
       return NextResponse.json(
@@ -102,7 +103,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
     return NextResponse.json(updatedHoliday);
   } catch (error) {
-    console.error(`Error updating holiday ${holidayId}:`, error);
+    logError('Error updating holiday ${holidayId}', error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2025') {
         // Record to update not found
@@ -130,7 +131,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     });
     return NextResponse.json({ message: 'Holiday deleted successfully' }, { status: 200 }); // Or 204 No Content
   } catch (error) {
-    console.error(`Error deleting holiday ${holidayId}:`, error);
+    logError('Error deleting holiday ${holidayId}', error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2025') {
         // Record to delete not found
