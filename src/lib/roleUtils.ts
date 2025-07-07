@@ -9,7 +9,7 @@ export async function assignRoleToUser(userId: string, roleName: string) {
   try {
     // Find the role by name
     const role = await prisma.role.findUnique({
-      where: { roleName },
+      where: { name: roleName, isActive: true },
     });
 
     if (!role) {
@@ -27,8 +27,18 @@ export async function assignRoleToUser(userId: string, roleName: string) {
     });
 
     if (existingUserRole) {
-      console.log(`User already has role: ${roleName}`);
-      return existingUserRole;
+      if (existingUserRole.isActive) {
+        console.log(`User already has active role: ${roleName}`);
+        return existingUserRole;
+      } else {
+        // Reactivate the role
+        const reactivated = await prisma.userRole.update({
+          where: { id: existingUserRole.id },
+          data: { isActive: true },
+        });
+        console.log(`✅ Reactivated role '${roleName}' for user ${userId}`);
+        return reactivated;
+      }
     }
 
     // Assign the role to the user
@@ -36,6 +46,7 @@ export async function assignRoleToUser(userId: string, roleName: string) {
       data: {
         userId,
         roleId: role.id,
+        isActive: true,
       },
     });
 
@@ -48,31 +59,33 @@ export async function assignRoleToUser(userId: string, roleName: string) {
 }
 
 /**
- * Remove a role from a user
+ * Remove a role from a user (deactivate)
  */
 export async function removeRoleFromUser(userId: string, roleName: string) {
   try {
     // Find the role by name
     const role = await prisma.role.findUnique({
-      where: { roleName },
+      where: { name: roleName, isActive: true },
     });
 
     if (!role) {
       throw new Error(`Role '${roleName}' not found`);
     }
 
-    // Remove the role from the user
-    const deletedUserRole = await prisma.userRole.delete({
+    // Deactivate the user role instead of deleting
+    const updatedUserRole = await prisma.userRole.updateMany({
       where: {
-        userId_roleId: {
-          userId,
-          roleId: role.id,
-        },
+        userId,
+        roleId: role.id,
+        isActive: true,
+      },
+      data: {
+        isActive: false,
       },
     });
 
     console.log(`✅ Removed role '${roleName}' from user ${userId}`);
-    return deletedUserRole;
+    return updatedUserRole;
   } catch (error) {
     console.error(`❌ Error removing role '${roleName}' from user ${userId}:`, error);
     throw error;
@@ -80,12 +93,18 @@ export async function removeRoleFromUser(userId: string, roleName: string) {
 }
 
 /**
- * Get all roles for a user
+ * Get all active roles for a user
  */
 export async function getUserRoles(userId: string) {
   try {
     const userRoles = await prisma.userRole.findMany({
-      where: { userId },
+      where: {
+        userId,
+        isActive: true,
+        role: {
+          isActive: true,
+        },
+      },
       include: {
         role: true,
       },
@@ -104,19 +123,18 @@ export async function getUserRoles(userId: string) {
 export async function userHasRole(userId: string, roleName: string): Promise<boolean> {
   try {
     const role = await prisma.role.findUnique({
-      where: { roleName },
+      where: { name: roleName, isActive: true },
     });
 
     if (!role) {
       return false;
     }
 
-    const userRole = await prisma.userRole.findUnique({
+    const userRole = await prisma.userRole.findFirst({
       where: {
-        userId_roleId: {
-          userId,
-          roleId: role.id,
-        },
+        userId,
+        roleId: role.id,
+        isActive: true,
       },
     });
 
@@ -147,9 +165,10 @@ export async function assignEmployeeRole(userId: string) {
 export async function getUsersWithRole(roleName: string) {
   try {
     const role = await prisma.role.findUnique({
-      where: { roleName },
+      where: { name: roleName, isActive: true },
       include: {
         userRoles: {
+          where: { isActive: true },
           include: {
             user: true,
           },
@@ -165,5 +184,61 @@ export async function getUsersWithRole(roleName: string) {
   } catch (error) {
     console.error(`❌ Error getting users with role '${roleName}':`, error);
     throw error;
+  }
+}
+
+/**
+ * Create default roles if they don't exist
+ */
+export async function createDefaultRoles() {
+  const defaultRoles = [
+    {
+      name: 'admin',
+      description: 'Administrator with full system access',
+      permissions: ['*'], // Wildcard for all permissions
+    },
+    {
+      name: 'hr',
+      description: 'Human Resources staff',
+      permissions: [
+        'users:read',
+        'users:write',
+        'employees:read',
+        'employees:write',
+        'payroll:read',
+      ],
+    },
+    {
+      name: 'manager',
+      description: 'Team manager',
+      permissions: ['attendance:read', 'leave:approve', 'employees:read'],
+    },
+    {
+      name: 'employee',
+      description: 'Regular employee',
+      permissions: ['attendance:read', 'leave:create', 'payslips:read'],
+    },
+    {
+      name: 'user',
+      description: 'Basic user access',
+      permissions: ['profile:read'],
+    },
+  ];
+
+  for (const roleData of defaultRoles) {
+    try {
+      const existingRole = await prisma.role.findUnique({
+        where: { name: roleData.name },
+      });
+
+      if (!existingRole) {
+        await prisma.role.create({
+          data: roleData,
+        });
+        console.log(`✅ Created default role: ${roleData.name}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error creating role ${roleData.name}:`, error);
+    }
   }
 }

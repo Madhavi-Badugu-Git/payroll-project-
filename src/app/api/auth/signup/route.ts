@@ -1,8 +1,8 @@
 import { PrismaClient } from '@/generated/prisma';
-import { assignDefaultUserRole, assignEmployeeRole } from '@/lib/roleUtils';
+// import { assignDefaultUserRole, assignEmployeeRole } from '@/lib/roleUtils'; // Disabled until role system is implemented
+import { logError } from '@/lib/logger';
 import bcryptjs from 'bcryptjs';
 import { NextRequest, NextResponse } from 'next/server';
-import { logError } from '@/lib/logger';
 
 const prisma = new PrismaClient();
 
@@ -38,11 +38,9 @@ export async function POST(request: NextRequest) {
     const user = await prisma.user.create({
       data: {
         email,
-        password: hashedPassword,
+        hashedPassword,
         firstName: firstName || null,
         lastName: lastName || null,
-        isActive: true,
-        isEmailVerified: false,
       },
       select: {
         id: true,
@@ -55,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     // Assign default user role
     try {
-      await assignDefaultUserRole(user.id);
+      // await assignDefaultUserRole(user.id); // Disabled until role system is implemented
     } catch (error) {
       logError('Error assigning default user role', error);
     }
@@ -76,7 +74,7 @@ export async function POST(request: NextRequest) {
 
       // Assign employee role when linking to employee record
       try {
-        await assignEmployeeRole(user.id);
+        // await assignEmployeeRole(user.id); // Disabled until role system is implemented
       } catch (error) {
         logError('Error assigning employee role', error);
       }

@@ -1,6 +1,6 @@
 import { PrismaClient } from '@/generated/prisma';
-import { NextRequest, NextResponse } from 'next/server';
 import { logError } from '@/lib/logger';
+import { NextRequest, NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
 
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       include: {
         employee: {
           select: {
-            empId: true,
+            employeeNumber: true,
             firstName: true,
             lastName: true,
             email: true,
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // Transform data to match the frontend interface
     const transformedPayslip = {
       id: payslip.id,
-      employeeId: payslip.empId,
+      employeeId: payslip.employeeId,
       employeeName: `${payslip.employee.firstName} ${payslip.employee.lastName}`,
       payslipForMonth: payslip.payslipForMonth,
       payslipDate: payslip.payslipDate.toISOString().split('T')[0].split('-').reverse().join('/'),
@@ -131,7 +131,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
       include: {
         employee: {
           select: {
-            empId: true,
+            employeeNumber: true,
             firstName: true,
             lastName: true,
             email: true,
@@ -146,7 +146,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     // Transform response to match frontend interface
     const transformedPayslip = {
       id: updatedPayslip.id,
-      employeeId: updatedPayslip.empId,
+      employeeId: updatedPayslip.employeeId,
       employeeName: `${updatedPayslip.employee.firstName} ${updatedPayslip.employee.lastName}`,
       payslipForMonth: updatedPayslip.payslipForMonth,
       payslipDate: updatedPayslip.payslipDate

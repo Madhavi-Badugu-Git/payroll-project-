@@ -1,6 +1,6 @@
 import { PrismaClient } from '@/generated/prisma';
-import { NextRequest, NextResponse } from 'next/server';
 import { logError } from '@/lib/logger';
+import { NextRequest, NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
 
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       include: {
         employee: {
           select: {
-            empId: true,
+            employeeNumber: true,
             firstName: true,
             lastName: true,
             email: true,
@@ -40,7 +40,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params;
     const body = await request.json();
-    const { empId, salary, revisionDate, currentPosition, previousPosition } = body;
+    const { employeeNumber, empId, salary, revisionDate, currentPosition, previousPosition } = body;
+
+    // Support both employeeNumber and legacy empId
+    const empNumber = employeeNumber || empId;
 
     // Check if promotion exists
     const existingPromotion = await prisma.employeePromotion.findUnique({
@@ -52,13 +55,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Validate required fields
-    if (!empId || !salary || !revisionDate || !currentPosition || !previousPosition) {
+    if (!empNumber || !salary || !revisionDate || !currentPosition || !previousPosition) {
       return NextResponse.json({ error: 'All required fields must be provided' }, { status: 400 });
     }
 
     // Check if employee exists
     const existingEmployee = await prisma.employee.findUnique({
-      where: { empId: empId },
+      where: { employeeNumber: empNumber },
     });
 
     if (!existingEmployee) {
@@ -76,7 +79,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       const updatedPromotion = await tx.employeePromotion.update({
         where: { id },
         data: {
-          empId,
+          employeeId: existingEmployee.id,
           salary: parseFloat(salary),
           revisionDate: new Date(revisionDate),
           currentPosition,
@@ -85,7 +88,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         include: {
           employee: {
             select: {
-              empId: true,
+              employeeNumber: true,
               firstName: true,
               lastName: true,
               email: true,
@@ -97,14 +100,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
       // Check if this is the most recent promotion for this employee
       const mostRecentPromotion = await tx.employeePromotion.findFirst({
-        where: { empId: empId },
+        where: { employeeId: existingEmployee.id },
         orderBy: { revisionDate: 'desc' },
       });
 
       // If this is the most recent promotion, update employee's current data
       if (mostRecentPromotion && mostRecentPromotion.id === id) {
         await tx.employee.update({
-          where: { empId: empId },
+          where: { id: existingEmployee.id },
           data: {
             currentSalary: parseFloat(salary),
             currentDesignation: currentPosition,
@@ -144,7 +147,7 @@ export async function DELETE(
     await prisma.$transaction(async tx => {
       // Check if this is the most recent promotion before deletion
       const mostRecentPromotion = await tx.employeePromotion.findFirst({
-        where: { empId: existingPromotion.empId },
+        where: { employeeId: existingPromotion.employeeId },
         orderBy: { revisionDate: 'desc' },
       });
 
@@ -159,14 +162,14 @@ export async function DELETE(
       if (isLatestPromotion) {
         // Find the new most recent promotion after deletion
         const newMostRecentPromotion = await tx.employeePromotion.findFirst({
-          where: { empId: existingPromotion.empId },
+          where: { employeeId: existingPromotion.employeeId },
           orderBy: { revisionDate: 'desc' },
         });
 
         if (newMostRecentPromotion) {
           // Update employee to match the new most recent promotion
           await tx.employee.update({
-            where: { empId: existingPromotion.empId },
+            where: { id: existingPromotion.employeeId },
             data: {
               currentSalary: newMostRecentPromotion.salary,
               currentDesignation: newMostRecentPromotion.currentPosition,
@@ -177,7 +180,7 @@ export async function DELETE(
           // No promotions left, you might want to set to base salary/designation
           // For now, we'll keep the current values but update the timestamp
           await tx.employee.update({
-            where: { empId: existingPromotion.empId },
+            where: { id: existingPromotion.employeeId },
             data: {
               updatedAt: new Date(),
             },

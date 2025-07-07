@@ -168,11 +168,11 @@ export async function DELETE(
     ] = await Promise.all([
       prisma.leaveApplication.count({ where: { employeeId: id } }),
       prisma.attendanceRegularization.count({ where: { employeeId: id } }),
-      prisma.employeePromotion.count({ where: { empId: employee.empId } }),
-      prisma.payslip.count({ where: { empId: employee.empId } }),
-      prisma.leaveBalance.count({ where: { empId: employee.empId } }),
-      prisma.leaveAccumulation.count({ where: { empId: employee.empId } }),
-      prisma.leaveTransaction.count({ where: { empId: employee.empId } }),
+      prisma.employeePromotion.count({ where: { employeeId: employee.id } }),
+      prisma.payslip.count({ where: { employeeId: employee.id } }),
+      prisma.leaveBalance.count({ where: { employeeId: employee.id } }),
+      prisma.leaveAccumulation.count({ where: { employeeId: employee.id } }),
+      prisma.leaveTransaction.count({ where: { employeeId: employee.id } }),
     ]);
 
     const totalRelatedRecords =

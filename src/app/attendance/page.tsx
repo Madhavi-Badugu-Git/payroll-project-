@@ -82,7 +82,7 @@ export default function AttendancePage() {
 
   const handleLeaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!linkedEmployee?.empId) {
+    if (!linkedEmployee?.employeeNumber) {
       return;
     }
     setLeaveSubmitting(true);
@@ -99,10 +99,10 @@ export default function AttendancePage() {
 
   // Use the hook's fetchAttendanceLog function
   useEffect(() => {
-    if (linkedEmployee?.empId) {
+    if (linkedEmployee?.employeeNumber) {
       fetchAttendanceLog(viewedMonth);
     }
-  }, [fetchAttendanceLog, viewedMonth, linkedEmployee?.empId]);
+  }, [fetchAttendanceLog, viewedMonth, linkedEmployee?.employeeNumber]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -151,13 +151,13 @@ export default function AttendancePage() {
 
   // Use the hook's handleAttendanceAction function directly
   const handleCheckIn = () => {
-    if (linkedEmployee?.empId && user?.id) {
+    if (linkedEmployee?.employeeNumber && user?.id) {
       handleAttendanceAction('check-in');
     }
   };
 
   const handleCheckOut = () => {
-    if (linkedEmployee?.empId && user?.id) {
+    if (linkedEmployee?.employeeNumber && user?.id) {
       handleAttendanceAction('check-out');
     }
   };

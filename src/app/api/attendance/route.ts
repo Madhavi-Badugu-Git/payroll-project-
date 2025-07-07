@@ -155,13 +155,13 @@ export async function POST(req: NextRequest) {
     let employee = null;
 
     if (employeeId) {
-      // If employeeId (empId) is provided, use it directly
+      // If employeeId is provided, use it as the primary key
       employee = await prisma.employee.findUnique({
-        where: { empId: employeeId },
+        where: { id: employeeId },
       });
     }
 
-    // If employee not found by empId, try to find by session user email as fallback
+    // If employee not found by id, try to find by session user email as fallback
     if (!employee) {
       employee = await prisma.employee.findUnique({
         where: { email: session.user.email! },
@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
 
     const existingRecord = await prisma.attendance.findFirst({
       where: {
-        employeeId: employee.empId,
+        employeeId: employee.id,
         date: attendanceDate,
       },
     });
@@ -281,7 +281,7 @@ export async function POST(req: NextRequest) {
       logDebug('Calculating hours for attendance', {
         checkInTime: checkInTime.toISOString(),
         checkOutTime: checkOutTime.toISOString(),
-        employeeId: employee.empId,
+        employeeId: employee.id,
         date: attendanceDate.toISOString(),
       });
 
@@ -332,7 +332,7 @@ export async function POST(req: NextRequest) {
     } else {
       // Creating a new record
       const dataToCreate: Prisma.AttendanceCreateInput = {
-        employeeId: employee.empId,
+        employeeId: employee.id,
         date: attendanceDate,
         status: currentStatus, // Status determined by the logic above
         checkIn: type === 'checkIn' ? actionTime : null,

@@ -66,9 +66,20 @@ export function getUserRoles(user: User): string[] {
 export function getEmployeeIdFromUser(user: User): string | null {
   if (!user) return null;
 
-  // Get empId from employee relation
-  if (user.employee?.empId) {
-    return user.employee.empId;
+  // Get employeeNumber from employee relation (for backward compatibility)
+  if (user.employee?.employeeNumber) {
+    return user.employee.employeeNumber;
+  }
+
+  return null;
+}
+
+export function getEmployeeNumberFromUser(user: User): string | null {
+  if (!user) return null;
+
+  // Get employeeNumber from employee relation
+  if (user.employee?.employeeNumber) {
+    return user.employee.employeeNumber;
   }
 
   return null;

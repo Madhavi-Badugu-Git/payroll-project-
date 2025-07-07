@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 interface LeaveAccumulation {
   id: string;
-  empId: string;
+  employeeNumber: string;
   year: number;
   month: number;
   monthName: string;
@@ -17,7 +17,7 @@ interface LeaveAccumulation {
 
 interface LeaveTransaction {
   id: string;
-  empId: string;
+  employeeNumber: string;
   leaveApplicationId: string | null;
   transactionType: string;
   days: number;

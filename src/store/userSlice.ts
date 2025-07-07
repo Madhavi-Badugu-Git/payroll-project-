@@ -11,7 +11,7 @@ export interface User {
 
 export interface LinkedEmployee {
   id: string;
-  empId: string;
+  employeeNumber: string;
   name: string;
   designation: string;
 }

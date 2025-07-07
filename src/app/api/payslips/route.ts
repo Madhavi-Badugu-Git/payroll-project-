@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '20', 10);
-    const empId = searchParams.get('empId');
+    const employeeNumber = searchParams.get('employeeNumber') || searchParams.get('empId'); // Support both for backward compatibility
     const year = searchParams.get('year');
     const month = searchParams.get('month');
 
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause based on filters
     const whereClause: {
-      empId?: string;
+      employeeId?: string;
       year?: number;
       payslipForMonth?: {
         contains: string;
@@ -26,8 +26,18 @@ export async function GET(request: NextRequest) {
       };
     } = {};
 
-    if (empId) {
-      whereClause.empId = empId;
+    if (employeeNumber) {
+      // Find employee by employeeNumber first
+      const employee = await prisma.employee.findUnique({
+        where: { employeeNumber },
+        select: { id: true },
+      });
+
+      if (employee) {
+        whereClause.employeeId = employee.id;
+      } else {
+        return NextResponse.json({ payslips: [], total: 0 });
+      }
     }
 
     if (year) {
@@ -48,7 +58,7 @@ export async function GET(request: NextRequest) {
       include: {
         employee: {
           select: {
-            empId: true,
+            employeeNumber: true,
             firstName: true,
             lastName: true,
             email: true,
@@ -68,7 +78,8 @@ export async function GET(request: NextRequest) {
     // Transform data to match the frontend interface
     const transformedPayslips = payslips.map(payslip => ({
       id: payslip.id,
-      employeeId: payslip.empId,
+      employeeId: payslip.employeeId,
+      employeeNumber: payslip.employee.employeeNumber,
       employeeName: `${payslip.employee.firstName} ${payslip.employee.lastName}`,
       payslipForMonth: payslip.payslipForMonth,
       payslipDate: payslip.payslipDate.toISOString().split('T')[0].split('-').reverse().join('/'), // Convert to DD/MM/YYYY
@@ -110,7 +121,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
-      empId,
+      employeeNumber,
+      empId, // Support legacy field for backward compatibility
       payslipForMonth,
       payslipDate,
       location,
@@ -131,9 +143,12 @@ export async function POST(request: NextRequest) {
       incomeTax = 0,
     } = body;
 
+    // Use employeeNumber or fall back to empId for backward compatibility
+    const empNumber = employeeNumber || empId;
+
     // Validate required fields
     if (
-      !empId ||
+      !empNumber ||
       !payslipForMonth ||
       !payslipDate ||
       !location ||
@@ -154,7 +169,7 @@ export async function POST(request: NextRequest) {
 
     // Check if employee exists
     const employee = await prisma.employee.findUnique({
-      where: { empId },
+      where: { employeeNumber: empNumber },
     });
 
     if (!employee) {
@@ -169,8 +184,8 @@ export async function POST(request: NextRequest) {
     // Check if payslip already exists for this employee, month, and year
     const existingPayslip = await prisma.payslip.findUnique({
       where: {
-        empId_payslipForMonth_year: {
-          empId,
+        employeeId_payslipForMonth_year: {
+          employeeId: employee.id,
           payslipForMonth,
           year,
         },
@@ -186,7 +201,7 @@ export async function POST(request: NextRequest) {
 
     const payslip = await prisma.payslip.create({
       data: {
-        empId,
+        employeeId: employee.id,
         payslipForMonth,
         payslipDate: new Date(payslipDate),
         location,
@@ -211,7 +226,7 @@ export async function POST(request: NextRequest) {
       include: {
         employee: {
           select: {
-            empId: true,
+            employeeNumber: true,
             firstName: true,
             lastName: true,
             email: true,
@@ -226,7 +241,8 @@ export async function POST(request: NextRequest) {
     // Transform response to match frontend interface
     const transformedPayslip = {
       id: payslip.id,
-      employeeId: payslip.empId,
+      employeeId: payslip.employeeId,
+      employeeNumber: payslip.employee.employeeNumber,
       employeeName: `${payslip.employee.firstName} ${payslip.employee.lastName}`,
       payslipForMonth: payslip.payslipForMonth,
       payslipDate: payslip.payslipDate.toISOString().split('T')[0].split('-').reverse().join('/'),

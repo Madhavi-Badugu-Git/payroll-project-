@@ -64,10 +64,10 @@ const getAxiosErrorMessage = (error: unknown): string => {
 };
 
 export const useAttendance = (): UseAttendanceReturn => {
-  // Get employee ID from Redux state
+  // Get employee ID (primary key) from Redux state for API calls
   const linkedEmployee = useSelector((state: RootState) => state.user.linkedEmployee);
   const user = useSelector((state: RootState) => state.user.user);
-  const empId = linkedEmployee?.empId;
+  const employeeId = linkedEmployee?.id; // Use the primary key for API calls
 
   const [attendanceLog, setAttendanceLog] = useState<AttendanceEntry[]>([]);
   const [todayRecord, setTodayRecord] = useState<AttendanceEntry | null>(null);
@@ -82,7 +82,7 @@ export const useAttendance = (): UseAttendanceReturn => {
       try {
         const url = getApiUrl('/attendance');
         const params = new URLSearchParams({
-          employeeId: empId || '',
+          employeeId: employeeId || '',
           month: (month.getMonth() + 1).toString(),
           year: month.getFullYear().toString(),
         });
@@ -100,7 +100,7 @@ export const useAttendance = (): UseAttendanceReturn => {
         setIsLoading(false);
       }
     },
-    [empId]
+    [employeeId]
   );
 
   const handleAttendanceAction = useCallback(
@@ -124,7 +124,7 @@ export const useAttendance = (): UseAttendanceReturn => {
           time: string;
           remarks?: string;
         } = {
-          employeeId: empId,
+          employeeId: employeeId,
           userId: user?.id,
           date: currentDate,
           type: type,
@@ -141,7 +141,7 @@ export const useAttendance = (): UseAttendanceReturn => {
         throw err;
       }
     },
-    [empId, user?.id]
+    [employeeId, user?.id]
   );
 
   const submitLeaveApplication = useCallback(
@@ -150,7 +150,7 @@ export const useAttendance = (): UseAttendanceReturn => {
 
       try {
         const url = getApiUrl('/leave');
-        const payload = { ...data, empId };
+        const payload = { ...data, employeeNumber: linkedEmployee?.employeeNumber };
         await axios.post(url, payload);
         return true;
       } catch (err) {
@@ -158,7 +158,7 @@ export const useAttendance = (): UseAttendanceReturn => {
         return false;
       }
     },
-    [empId]
+    [linkedEmployee?.employeeNumber]
   );
 
   const submitRegularizationRequest = useCallback(
@@ -170,7 +170,7 @@ export const useAttendance = (): UseAttendanceReturn => {
 
       try {
         const url = getApiUrl(`/attendance/${id}`);
-        const payload = { ...data, empId, userId: user?.id };
+        const payload = { ...data, employeeId, userId: user?.id };
         await axios.put(url, payload);
         return true;
       } catch (err) {
@@ -178,7 +178,7 @@ export const useAttendance = (): UseAttendanceReturn => {
         return false;
       }
     },
-    [empId, user?.id]
+    [employeeId, user?.id]
   );
 
   return {

@@ -1,6 +1,6 @@
 import { PrismaClient } from '@/generated/prisma';
-import { NextRequest, NextResponse } from 'next/server';
 import { logError } from '@/lib/logger';
+import { NextRequest, NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
 
@@ -22,7 +22,8 @@ export async function POST(request: NextRequest) {
 
       try {
         const {
-          empId,
+          employeeNumber,
+          empId, // Support legacy field name for backward compatibility
           payslipForMonth,
           payslipDate,
           location,
@@ -43,9 +44,12 @@ export async function POST(request: NextRequest) {
           incomeTax = 0,
         } = payslipData;
 
+        // Use employeeNumber or fall back to empId for backward compatibility
+        const empNumber = employeeNumber || empId;
+
         // Validate required fields
         if (
-          !empId ||
+          !empNumber ||
           !payslipForMonth ||
           !payslipDate ||
           !location ||
@@ -71,13 +75,13 @@ export async function POST(request: NextRequest) {
 
         // Check if employee exists
         const employee = await prisma.employee.findUnique({
-          where: { empId },
+          where: { employeeNumber: empNumber },
         });
 
         if (!employee) {
           errors.push({
             index: i,
-            error: `Employee with ID ${empId} not found`,
+            error: `Employee with number ${empNumber} not found`,
             data: payslipData,
           });
           continue;
@@ -91,8 +95,8 @@ export async function POST(request: NextRequest) {
         // Check if payslip already exists
         const existingPayslip = await prisma.payslip.findUnique({
           where: {
-            empId_payslipForMonth_year: {
-              empId,
+            employeeId_payslipForMonth_year: {
+              employeeId: employee.id,
               payslipForMonth,
               year,
             },
@@ -102,7 +106,7 @@ export async function POST(request: NextRequest) {
         if (existingPayslip) {
           errors.push({
             index: i,
-            error: `Payslip already exists for ${empId} - ${payslipForMonth} ${year}`,
+            error: `Payslip already exists for ${empNumber} - ${payslipForMonth} ${year}`,
             data: payslipData,
           });
           continue;
@@ -110,7 +114,7 @@ export async function POST(request: NextRequest) {
 
         const payslip = await prisma.payslip.create({
           data: {
-            empId,
+            employeeId: employee.id,
             payslipForMonth,
             payslipDate: new Date(payslipDate),
             location,
@@ -138,7 +142,8 @@ export async function POST(request: NextRequest) {
           index: i,
           success: true,
           payslipId: payslip.id,
-          empId: payslip.empId,
+          employeeId: payslip.employeeId,
+          employeeNumber: empNumber,
           payslipForMonth: payslip.payslipForMonth,
           year: payslip.year,
         });

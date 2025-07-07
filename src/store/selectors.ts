@@ -35,7 +35,7 @@ export const selectEmployeeInfo = (state: RootState) => {
   if (!linkedEmployee) return null;
 
   return {
-    empId: linkedEmployee.empId,
+    employeeNumber: linkedEmployee.employeeNumber,
     name: linkedEmployee.name,
     designation: linkedEmployee.designation,
   };

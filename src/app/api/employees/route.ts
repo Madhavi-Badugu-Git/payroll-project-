@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
     // Check if office email already exists
     const existingEmployee = await prisma.employee.findFirst({
       where: {
-        OR: [{ empId: empId }, { email: officeEmail }],
+        OR: [{ employeeNumber: empId }, { email: officeEmail }],
       },
     });
 
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
 
     const employee = await prisma.employee.create({
       data: {
-        empId,
+        employeeNumber: empId,
         firstName,
         lastName,
         email: officeEmail,

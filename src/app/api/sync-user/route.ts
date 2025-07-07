@@ -32,13 +32,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized - User ID mismatch' }, { status: 401 });
     }
 
-    // Find the user in the database with roles
+    // Find the user in the database
     let dbUser;
     try {
       dbUser = await prisma.user.findUnique({
         where: { id: userId },
         include: {
+          employee: true,
           userRoles: {
+            where: { isActive: true },
             include: {
               role: true,
             },
@@ -50,38 +52,84 @@ export async function POST(request: NextRequest) {
         logError(`User not found in database: ${userId}`);
         return NextResponse.json({ error: 'User not found in database' }, { status: 404 });
       }
+
+      // Debug: Log the user data structure
+      console.log('🔍 DEBUG: User found in database:', {
+        id: dbUser.id,
+        email: dbUser.email,
+        hasEmployee: !!dbUser.employee,
+        employeeData: dbUser.employee
+          ? {
+              id: dbUser.employee.id,
+              employeeNumber: dbUser.employee.employeeNumber,
+              firstName: dbUser.employee.firstName,
+              lastName: dbUser.employee.lastName,
+            }
+          : null,
+      });
     } catch (dbError) {
       logError(`Database error while fetching user: ${userId}`, dbError);
       return NextResponse.json({ error: 'Database error while fetching user' }, { status: 500 });
     }
 
-    // Try to find a linked employee by matching email
+    // Try to find a linked employee
     let linkedEmployee = null;
     try {
-      const employee = await prisma.employee.findFirst({
-        where: {
-          OR: [{ email: dbUser.email }, { personalEmail: dbUser.email }],
-        },
-      });
-
-      if (employee) {
+      // First, check if the user already has a directly linked employee
+      if (dbUser.employee) {
         linkedEmployee = {
-          id: employee.id,
-          empId: employee.empId,
-          name: `${employee.firstName} ${employee.lastName}`,
-          designation: employee.currentDesignation,
+          id: dbUser.employee.id,
+          employeeNumber: dbUser.employee.employeeNumber,
+          name: `${dbUser.employee.firstName} ${dbUser.employee.lastName}`,
+          designation: dbUser.employee.currentDesignation,
         };
 
-        logInfo('Employee found for user', {
+        console.log('🔍 DEBUG: Found linked employee via direct relationship:', linkedEmployee);
+
+        logInfo('Employee found via direct relationship', {
           userId,
-          employeeId: employee.id,
-          empId: employee.empId,
-          email: dbUser.email,
+          employeeId: dbUser.employee.id,
+          employeeNumber: dbUser.employee.employeeNumber,
         });
       } else {
-        logDebug('No employee found with matching email', {
-          email: dbUser.email,
+        // Fallback: try to find an employee by matching email
+        const employee = await prisma.employee.findFirst({
+          where: {
+            OR: [{ email: dbUser.email }, { personalEmail: dbUser.email }],
+            userId: null, // Only consider unlinked employees
+          },
         });
+
+        if (employee) {
+          // Link the employee to the user
+          await prisma.employee.update({
+            where: { id: employee.id },
+            data: { userId: dbUser.id },
+          });
+
+          linkedEmployee = {
+            id: employee.id,
+            employeeNumber: employee.employeeNumber,
+            name: `${employee.firstName} ${employee.lastName}`,
+            designation: employee.currentDesignation,
+          };
+
+          console.log(
+            '🔗 DEBUG: Linked employee found by email and linked to user:',
+            linkedEmployee
+          );
+
+          logInfo('Employee found by email and linked to user', {
+            userId,
+            employeeId: employee.id,
+            employeeNumber: employee.employeeNumber,
+            email: dbUser.email,
+          });
+        } else {
+          logDebug('No unlinked employee found with matching email', {
+            email: dbUser.email,
+          });
+        }
       }
     } catch (employeeLinkError) {
       logError(
@@ -98,11 +146,16 @@ export async function POST(request: NextRequest) {
       linkedEmployee: linkedEmployee
         ? {
             id: linkedEmployee.id,
-            empId: linkedEmployee.empId,
+            employeeNumber: linkedEmployee.employeeNumber,
             name: linkedEmployee.name,
           }
         : null,
     });
+
+    console.log('🔍 DEBUG: Final linkedEmployee before response:', linkedEmployee);
+
+    // Extract roles from userRoles
+    const roles = dbUser.userRoles.filter(ur => ur.isActive).map(ur => ur.role.name);
 
     const response: UserSyncResponse = {
       success: true,
@@ -111,11 +164,13 @@ export async function POST(request: NextRequest) {
         email: dbUser.email,
         firstName: dbUser.firstName,
         lastName: dbUser.lastName,
-        imageUrl: dbUser.imageUrl,
-        roles: dbUser.userRoles.map(userRole => userRole.role.roleName),
+        imageUrl: dbUser.image, // Map database 'image' field to interface 'imageUrl'
+        roles, // Include actual roles from database
       },
       linkedEmployee,
     };
+
+    console.log('🔍 DEBUG: Final response object:', JSON.stringify(response, null, 2));
 
     return NextResponse.json(response);
   } catch (error) {

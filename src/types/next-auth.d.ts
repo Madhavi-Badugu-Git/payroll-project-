@@ -9,9 +9,10 @@ declare module 'next-auth' {
       firstName?: string | null;
       lastName?: string | null;
       imageUrl?: string | null;
+      roles?: string[];
       employee?: {
         id: string;
-        empId: string;
+        employeeNumber: string;
         firstName: string;
         lastName: string;
         currentDesignation: string;
@@ -25,9 +26,10 @@ declare module 'next-auth' {
     firstName?: string | null;
     lastName?: string | null;
     imageUrl?: string | null;
+    roles?: string[];
     employee?: {
       id: string;
-      empId: string;
+      employeeNumber: string;
       firstName: string;
       lastName: string;
       currentDesignation: string;
@@ -38,9 +40,10 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT extends DefaultJWT {
     id: string;
+    roles?: string[];
     employee?: {
       id: string;
-      empId: string;
+      employeeNumber: string;
       firstName: string;
       lastName: string;
       currentDesignation: string;

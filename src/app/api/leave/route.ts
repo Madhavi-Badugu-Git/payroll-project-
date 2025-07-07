@@ -1,7 +1,7 @@
 import { PrismaClient } from '@/generated/prisma';
 import { authOptions } from '@/lib/auth/config';
 import { logError } from '@/lib/logger';
-import { getEmployeeIdFromUser } from '@/lib/userutils';
+import { getEmployeeNumberFromUser } from '@/lib/userutils';
 import { getServerSession } from 'next-auth/next';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -14,22 +14,39 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get empId from URL search params or session
+    // Get employeeNumber from URL search params or session
     const { searchParams } = new URL(req.url);
-    let empId = searchParams.get('empId') || searchParams.get('employeeId');
+    let employeeNumber =
+      searchParams.get('employeeNumber') ||
+      searchParams.get('empId') ||
+      searchParams.get('employeeId');
 
-    if (!empId) {
-      // Fallback to getting empId from session user
-      empId = getEmployeeIdFromUser(session.user);
+    logError('Leave API Debug Info', {
+      employeeNumberFromParams: employeeNumber,
+      sessionUser: session.user,
+      searchParams: Object.fromEntries(searchParams.entries()),
+    });
+
+    if (!employeeNumber) {
+      // Fallback to getting employeeNumber from session user
+      employeeNumber = getEmployeeNumberFromUser(session.user);
+      logError('Fallback employeeNumber from session', {
+        employeeNumberFromSession: employeeNumber,
+      });
     }
 
-    if (!empId) {
+    if (!employeeNumber) {
+      logError('No employeeNumber found anywhere', {
+        employeeNumberFromParams: searchParams.get('employeeNumber'),
+        employeeNumberFromSession: getEmployeeNumberFromUser(session.user),
+        sessionUserEmail: session.user?.email,
+      });
       return NextResponse.json({ error: 'Employee ID not found' }, { status: 404 });
     }
 
-    // Find employee by empId
+    // Find employee by employeeNumber
     const employee = await prisma.employee.findUnique({
-      where: { empId },
+      where: { employeeNumber },
     });
 
     if (!employee) {
@@ -71,23 +88,31 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { startDate, endDate, leaveType, reason, empId: bodyEmpId, employeeId } = body;
+    const {
+      startDate,
+      endDate,
+      leaveType,
+      reason,
+      employeeNumber: bodyEmployeeNumber,
+      empId: bodyEmpId,
+      employeeId,
+    } = body;
 
-    // Get empId from request body or session
-    let empId = bodyEmpId || employeeId;
+    // Get employeeNumber from request body or session (support legacy field names for backward compatibility)
+    let employeeNumber = bodyEmployeeNumber || bodyEmpId || employeeId;
 
-    if (!empId) {
-      // Fallback to getting empId from session user
-      empId = getEmployeeIdFromUser(session.user);
+    if (!employeeNumber) {
+      // Fallback to getting employeeNumber from session user
+      employeeNumber = getEmployeeNumberFromUser(session.user);
     }
 
-    if (!empId) {
+    if (!employeeNumber) {
       return NextResponse.json({ error: 'Employee ID not found' }, { status: 404 });
     }
 
-    // Find employee by empId
+    // Find employee by employeeNumber
     const employee = await prisma.employee.findUnique({
-      where: { empId },
+      where: { employeeNumber },
     });
 
     if (!employee) {

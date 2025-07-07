@@ -26,6 +26,12 @@ export const authOptions: NextAuthOptions = {
           },
           include: {
             employee: true,
+            userRoles: {
+              where: { isActive: true },
+              include: {
+                role: true,
+              },
+            },
           },
         });
 
@@ -33,32 +39,35 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const isPasswordValid = await bcryptjs.compare(credentials.password, user.password);
+        const isPasswordValid = await bcryptjs.compare(
+          credentials.password,
+          user.hashedPassword || ''
+        );
 
         if (!isPasswordValid) {
-          return null;
-        }
-
-        if (!user.isActive) {
           return null;
         }
 
         // Update last login
         await prisma.user.update({
           where: { id: user.id },
-          data: { lastLoginAt: new Date() },
+          data: { updatedAt: new Date() }, // Use updatedAt instead of lastLoginAt
         });
+
+        // Extract roles from userRoles
+        const roles = user.userRoles.filter(ur => ur.isActive).map(ur => ur.role.name);
 
         return {
           id: user.id,
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
-          imageUrl: user.imageUrl,
+          image: user.image,
+          roles,
           employee: user.employee
             ? {
                 id: user.employee.id,
-                empId: user.employee.empId,
+                employeeNumber: user.employee.employeeNumber,
                 firstName: user.employee.firstName,
                 lastName: user.employee.lastName,
                 currentDesignation: user.employee.currentDesignation,
@@ -75,14 +84,28 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.roles = user.roles;
         token.employee = user.employee;
+        console.log('🔍 DEBUG: JWT callback - storing employee and roles in token:', {
+          userId: user.id,
+          hasEmployee: !!user.employee,
+          roles: user.roles,
+          employee: user.employee,
+        });
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id;
+        session.user.roles = token.roles || [];
         session.user.employee = token.employee || null;
+        console.log('🔍 DEBUG: Session callback - setting employee and roles in session:', {
+          userId: token.id,
+          hasEmployee: !!token.employee,
+          roles: token.roles,
+          employee: token.employee,
+        });
       }
       return session;
     },

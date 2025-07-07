@@ -1,6 +1,6 @@
 import { PrismaClient } from '@/generated/prisma';
-import { NextRequest, NextResponse } from 'next/server';
 import { logError } from '@/lib/logger';
+import { NextRequest, NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
 
@@ -11,14 +11,24 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const search = searchParams.get('search') || '';
-    const empId = searchParams.get('empId') || '';
+    const employeeNumber = searchParams.get('employeeNumber') || searchParams.get('empId') || '';
 
     const skip = (page - 1) * limit;
 
     const whereClause: Record<string, unknown> = {};
 
-    if (empId) {
-      whereClause.empId = empId;
+    if (employeeNumber) {
+      // Find employee by employeeNumber first
+      const employee = await prisma.employee.findUnique({
+        where: { employeeNumber },
+        select: { id: true },
+      });
+
+      if (employee) {
+        whereClause.employeeId = employee.id;
+      } else {
+        return NextResponse.json({ promotions: [], totalCount: 0 });
+      }
     }
 
     if (search) {
@@ -30,7 +40,7 @@ export async function GET(request: NextRequest) {
             OR: [
               { firstName: { contains: search, mode: 'insensitive' as const } },
               { lastName: { contains: search, mode: 'insensitive' as const } },
-              { empId: { contains: search, mode: 'insensitive' as const } },
+              { employeeNumber: { contains: search, mode: 'insensitive' as const } },
             ],
           },
         },
@@ -44,7 +54,7 @@ export async function GET(request: NextRequest) {
       include: {
         employee: {
           select: {
-            empId: true,
+            employeeNumber: true,
             firstName: true,
             lastName: true,
             email: true,
@@ -72,16 +82,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { empId, salary, revisionDate, currentPosition, previousPosition } = body;
+    const { employeeNumber, empId, salary, revisionDate, currentPosition, previousPosition } = body;
+
+    // Support both employeeNumber and legacy empId
+    const empNumber = employeeNumber || empId;
 
     // Validate required fields
-    if (!empId || !salary || !revisionDate || !currentPosition || !previousPosition) {
+    if (!empNumber || !salary || !revisionDate || !currentPosition || !previousPosition) {
       return NextResponse.json({ error: 'All required fields must be provided' }, { status: 400 });
     }
 
     // Check if employee exists
     const existingEmployee = await prisma.employee.findUnique({
-      where: { empId: empId },
+      where: { employeeNumber: empNumber },
     });
 
     if (!existingEmployee) {
@@ -98,7 +111,7 @@ export async function POST(request: NextRequest) {
       // Create the promotion record
       const promotion = await tx.employeePromotion.create({
         data: {
-          empId,
+          employeeId: existingEmployee.id,
           salary: parseFloat(salary),
           revisionDate: new Date(revisionDate),
           currentPosition,
@@ -107,7 +120,7 @@ export async function POST(request: NextRequest) {
         include: {
           employee: {
             select: {
-              empId: true,
+              employeeNumber: true,
               firstName: true,
               lastName: true,
               email: true,
@@ -119,7 +132,7 @@ export async function POST(request: NextRequest) {
 
       // Update employee's current salary and designation to match the promotion
       await tx.employee.update({
-        where: { empId: empId },
+        where: { id: existingEmployee.id },
         data: {
           currentSalary: parseFloat(salary),
           currentDesignation: currentPosition,
