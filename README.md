@@ -56,7 +56,7 @@ cd payroll
 ### 2. Install Dependencies
 
 ```bash
-npm install
+npm install --legacy-peer-deps
 ```
 
 ### 3. Environment Configuration

@@ -39,30 +39,44 @@ export const useHolidays = (): UseHolidaysReturn => {
     }
   }, []);
 
-  const createHoliday = useCallback(async (holiday: Omit<Holiday, 'id'>): Promise<boolean> => {
-    try {
-      setError(null);
-      const response = await axios.post<Holiday>(getApiUrl('/holidays'), {
-        name: holiday.name,
-        date: holiday.date,
-      });
+  const createHoliday = useCallback(
+    async (holiday: Omit<Holiday, 'id'>): Promise<'success' | 'duplicate' | 'error'> => {
+      try {
+        setError(null);
+        const response = await axios.post<Holiday>(getApiUrl('/holidays'), {
+          name: holiday.name,
+          date: holiday.date,
+        });
 
-      // Add the new holiday to the list
-      const newHoliday = { ...response.data, date: toYYYYMMDD(response.data.date) };
-      setHolidays(prev => [...prev, newHoliday]);
+        // Add the new holiday to the list
+        const newHoliday = { ...response.data, date: toYYYYMMDD(response.data.date) };
+        setHolidays(prev => [...prev, newHoliday]);
 
-      toast.success('Holiday created successfully!');
-      return true;
-    } catch (err) {
-      const message = axios.isAxiosError(err)
-        ? err.response?.data?.error || err.message
-        : 'Failed to create holiday';
-      setError(message);
-      toast.error(`Error: ${message}`);
-      console.error('Failed to create holiday:', err);
-      return false;
-    }
-  }, []);
+        return 'success';
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          const status = err.response?.status;
+          const message = err.response?.data?.error || err.message;
+
+          if (status === 409) {
+            // Handle duplicate holiday - don't show as error since it's expected during import
+            console.log(`Holiday already exists for ${holiday.date}: ${holiday.name}`);
+            return 'duplicate';
+          }
+
+          setError(message);
+          console.error('Failed to create holiday:', err);
+          return 'error';
+        } else {
+          const message = 'Failed to create holiday';
+          setError(message);
+          console.error('Failed to create holiday:', err);
+          return 'error';
+        }
+      }
+    },
+    []
+  );
 
   const updateHoliday = useCallback(
     async (id: string, holiday: Omit<Holiday, 'id'>): Promise<boolean> => {
