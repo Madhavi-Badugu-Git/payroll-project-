@@ -252,7 +252,7 @@ export const useLeaves = (): UseLeavesReturn => {
     async (employeeNumber: string, year: number): Promise<void> => {
       try {
         setError(null);
-        const url = getApiUrl(`/leave-management?employeeNumber=${employeeNumber}&year=${year}`);
+        const url = getApiUrl(`/leave-management?empId=${employeeNumber}&year=${year}`);
         const response = await axios.get<LeaveInfo>(url);
 
         setLeaveInfo(response.data);

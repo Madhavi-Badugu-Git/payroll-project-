@@ -190,8 +190,8 @@ export default function PayslipsPage() {
   const user = session?.user;
 
   // Function to get employee ID from user
-  const getUserEmployeeId = (user: { employee?: { empId: string } | null }): string | null => {
-    return user?.employee?.empId || null;
+  const getUserEmployeeId = (user: { employee?: { id: string } | null }): string | null => {
+    return user?.employee?.id || null;
   };
 
   useEffect(() => {

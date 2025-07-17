@@ -85,19 +85,19 @@ export default function RegularizationAdminPage() {
           <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg p-6'>
             <h3 className='text-sm font-medium text-gray-500 dark:text-gray-400'>Total Requests</h3>
             <p className='text-2xl font-semibold text-gray-800 dark:text-white'>
-              {requests.length}
+              {Array.isArray(requests) ? requests.length : 0}
             </p>
           </div>
           <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg p-6'>
             <h3 className='text-sm font-medium text-gray-500 dark:text-gray-400'>Pending</h3>
             <p className='text-2xl font-semibold text-yellow-600 dark:text-yellow-400'>
-              {requests.filter(r => r.status.toLowerCase() === 'pending').length}
+              {Array.isArray(requests) ? requests.filter(r => r.status.toLowerCase() === 'pending').length : 0}
             </p>
           </div>
           <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg p-6'>
             <h3 className='text-sm font-medium text-gray-500 dark:text-gray-400'>Processed</h3>
             <p className='text-2xl font-semibold text-green-600 dark:text-green-400'>
-              {requests.filter(r => r.status.toLowerCase() !== 'pending').length}
+              {Array.isArray(requests) ? requests.filter(r => r.status.toLowerCase() !== 'pending').length : 0}
             </p>
           </div>
         </div>
@@ -110,9 +110,9 @@ export default function RegularizationAdminPage() {
             </h2>
           </div>
 
-          {requests.length === 0 ? (
+          {!Array.isArray(requests) || requests.length === 0 ? (
             <div className='p-6 text-center text-gray-500 dark:text-gray-400'>
-              No regularization requests found.
+              {!Array.isArray(requests) ? 'Error loading requests.' : 'No regularization requests found.'}
             </div>
           ) : (
             <div className='overflow-x-auto'>
@@ -146,7 +146,7 @@ export default function RegularizationAdminPage() {
                   </tr>
                 </thead>
                 <tbody className='bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700'>
-                  {requests.map(request => (
+                  {Array.isArray(requests) && requests.map(request => (
                     <tr key={request.id}>
                       <td className='px-6 py-4 whitespace-nowrap'>
                         <div>
@@ -156,7 +156,7 @@ export default function RegularizationAdminPage() {
                               : 'Unknown Employee'}
                           </div>
                           <div className='text-sm text-gray-500 dark:text-gray-400'>
-                            {request.employee?.empId || request.employeeId}
+                            {request.employee?.id || request.employeeId}
                           </div>
                         </div>
                       </td>

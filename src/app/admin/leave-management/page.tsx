@@ -267,8 +267,8 @@ export default function AdminLeaveManagementPage() {
                 </tr>
               </thead>
               <tbody className='bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700'>
-                {employeeLeaveInfo.map(employee => (
-                  <tr key={employee.empId}>
+                {employeeLeaveInfo.map((employee, index) => (
+                  <tr key={employee.empId || `employee-${index}`}>
                     <td className='px-6 py-4 whitespace-nowrap'>
                       <div>
                         <div className='text-sm font-medium text-gray-900 dark:text-white'>
@@ -293,11 +293,10 @@ export default function AdminLeaveManagementPage() {
                     </td>
                     <td className='px-6 py-4 whitespace-nowrap'>
                       <span
-                        className={`px-2 py-1 text-xs font-semibold rounded ${
-                          employee.balance
+                        className={`px-2 py-1 text-xs font-semibold rounded ${employee.balance
                             ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
                             : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
-                        }`}
+                          }`}
                       >
                         {employee.balance ? 'Initialized' : 'Not Initialized'}
                       </span>

@@ -55,7 +55,7 @@ export default function UserRoles() {
       <div className='mb-4'>
         <p className='text-gray-600'>User: {session.user.email}</p>
         {session.user.employee && (
-          <p className='text-gray-600'>Employee ID: {session.user.employee.empId}</p>
+          <p className='text-gray-600'>Employee ID: {session.user.employee.id}</p>
         )}
       </div>
 

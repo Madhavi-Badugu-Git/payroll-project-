@@ -27,7 +27,7 @@ interface User {
   lastLoginAt: string | null;
   createdAt: string;
   employee: {
-    empId: string;
+    id: string;
     firstName: string;
     lastName: string;
     currentDesignation: string;
@@ -312,7 +312,7 @@ export default function UsersPage() {
                           <div>
                             <div className='text-sm font-medium text-gray-900 dark:text-white flex items-center'>
                               <TagIcon className='h-4 w-4 mr-1' />
-                              {user.employee.empId}
+                              {user.employee.id}
                             </div>
                             <div className='text-sm text-gray-500 dark:text-gray-400 flex items-center'>
                               <BriefcaseIcon className='h-4 w-4 mr-1' />

@@ -16,7 +16,7 @@ interface LeaveApplication {
   employee?: {
     firstName: string;
     lastName: string;
-    empId: string;
+    id: string;
   };
 }
 

@@ -28,7 +28,6 @@ export interface AttendanceRegularization {
   // Related data that might be included from API
   employee?: {
     id: string;
-    empId: string;
     firstName: string;
     lastName: string;
   };

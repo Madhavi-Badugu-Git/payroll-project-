@@ -30,7 +30,7 @@ export async function getUserRolesAsync(user: User): Promise<string[]> {
 
   try {
     const roles = await getUserRolesFromDB(user.id);
-    return roles.map(role => role.roleName);
+    return roles.map(role => role.name);
   } catch (error) {
     console.error('Error fetching user roles:', error);
     return [];

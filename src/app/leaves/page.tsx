@@ -25,7 +25,7 @@ export default function EnhancedLeavesPage() {
 
   // Get employee ID from Redux state
   const linkedEmployee = useSelector((state: RootState) => state.user.linkedEmployee);
-  const empId = linkedEmployee?.empId;
+  const empId = linkedEmployee?.id;
 
   const {
     leaves,

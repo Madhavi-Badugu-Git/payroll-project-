@@ -58,12 +58,12 @@ export const useLeaveManagement = () => {
       for (const employee of employees) {
         try {
           const leaveResponse = await axios.get(
-            getApiUrl(`/leave-management?empId=${employee.empId}&year=${selectedYear}`)
+            getApiUrl(`/leave-management?empId=${employee.employeeNumber}&year=${selectedYear}`)
           );
           const leaveData = leaveResponse.data;
 
           const employeeInfo: EmployeeLeaveInfo = {
-            empId: employee.empId,
+            empId: employee.employeeNumber || employee.id,
             firstName: employee.firstName,
             lastName: employee.lastName,
             balance: leaveData.balance,
@@ -78,10 +78,10 @@ export const useLeaveManagement = () => {
 
           employeeInfos.push(employeeInfo);
         } catch (error) {
-          console.error(`Failed to fetch leave info for ${employee.empId}:`, error);
+          console.error(`Failed to fetch leave info for ${employee.employeeNumber}:`, error);
           // Add employee without balance info
           employeeInfos.push({
-            empId: employee.empId,
+            empId: employee.employeeNumber || employee.id,
             firstName: employee.firstName,
             lastName: employee.lastName,
             balance: null,

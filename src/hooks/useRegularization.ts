@@ -18,11 +18,14 @@ export const useRegularization = () => {
     try {
       setIsLoading(true);
       const response = await axios.get(getApiUrl('/regularization'));
-      setRequests(response.data);
+      const data = response.data;
+      // Ensure data is always an array
+      setRequests(Array.isArray(data) ? data : []);
       return response.data;
     } catch (error) {
       console.error('Error fetching regularization requests:', error);
       toast.error('Failed to fetch regularization requests');
+      setRequests([]); // Set empty array on error
       throw error;
     } finally {
       setIsLoading(false);

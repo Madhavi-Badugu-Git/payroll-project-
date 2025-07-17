@@ -70,7 +70,7 @@ export const UserDataExample = () => {
         {employeeInfo && (
           <div className='mt-2 space-y-1'>
             <p>
-              <strong>Employee ID:</strong> {employeeInfo.empId}
+              <strong>Employee ID:</strong> {employeeInfo.employeeNumber}
             </p>
             <p>
               <strong>Name:</strong> {employeeInfo.name}

@@ -40,8 +40,16 @@ export async function GET(req: NextRequest) {
         employeeNumberFromParams: searchParams.get('employeeNumber'),
         employeeNumberFromSession: getEmployeeNumberFromUser(session.user),
         sessionUserEmail: session.user?.email,
+        hasEmployee: !!session.user?.employee,
+        userID: session.user?.id,
       });
-      return NextResponse.json({ error: 'Employee ID not found' }, { status: 404 });
+      return NextResponse.json(
+        {
+          error: 'Employee profile not found. Please contact HR to set up your employee record.',
+          details: 'User account exists but is not linked to an employee record',
+        },
+        { status: 404 }
+      );
     }
 
     // Find employee by employeeNumber

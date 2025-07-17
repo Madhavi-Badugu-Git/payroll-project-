@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
             { firstName: { contains: search, mode: 'insensitive' as const } },
             { lastName: { contains: search, mode: 'insensitive' as const } },
             { email: { contains: search, mode: 'insensitive' as const } },
-            { empId: { contains: search, mode: 'insensitive' as const } },
+            { employeeNumber: { contains: search, mode: 'insensitive' as const } },
             { currentDesignation: { contains: search, mode: 'insensitive' as const } },
             { status: { contains: search, mode: 'insensitive' as const } },
             { stream: { contains: search, mode: 'insensitive' as const } },
