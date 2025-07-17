@@ -293,10 +293,11 @@ export default function AdminLeaveManagementPage() {
                     </td>
                     <td className='px-6 py-4 whitespace-nowrap'>
                       <span
-                        className={`px-2 py-1 text-xs font-semibold rounded ${employee.balance
+                        className={`px-2 py-1 text-xs font-semibold rounded ${
+                          employee.balance
                             ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
                             : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
-                          }`}
+                        }`}
                       >
                         {employee.balance ? 'Initialized' : 'Not Initialized'}
                       </span>
