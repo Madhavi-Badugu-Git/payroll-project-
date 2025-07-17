@@ -1,5 +1,5 @@
-import { useUser } from '@clerk/nextjs';
 import axios, { AxiosError } from 'axios';
+import { useSession } from 'next-auth/react';
 import { useCallback, useEffect, useRef } from 'react';
 import { getApiUrl } from '../lib/api';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -27,7 +27,7 @@ interface UseUserSyncReduxReturn {
 }
 
 /**
- * Redux-powered custom hook for syncing Clerk user data with the database
+ * Redux-powered custom hook for syncing NextAuth user session data with the database
  *
  * Features:
  * - Uses Redux for state management
@@ -43,7 +43,7 @@ interface UseUserSyncReduxReturn {
  * @returns {UseUserSyncReduxReturn} Hook state, sync function, and retry information
  */
 export const useUserSyncRedux = (): UseUserSyncReduxReturn => {
-  const { user: clerkUser, isLoaded } = useUser();
+  const { data: session, status } = useSession();
   const dispatch = useAppDispatch();
 
   // Get state from Redux store
@@ -59,7 +59,8 @@ export const useUserSyncRedux = (): UseUserSyncReduxReturn => {
   const lastUserIdRef = useRef<string | null>(null);
 
   const syncUser = useCallback(async (): Promise<void> => {
-    const currentUser = clerkUser;
+    const currentUser = session?.user;
+    const isLoaded = status !== 'loading';
 
     if (!currentUser || !isLoaded) {
       console.log('User not available for sync:', {
@@ -93,7 +94,7 @@ export const useUserSyncRedux = (): UseUserSyncReduxReturn => {
     try {
       console.log('Attempting to sync user:', {
         userId: currentUser.id,
-        email: currentUser.emailAddresses[0]?.emailAddress,
+        email: currentUser.email,
         attempt: retryCount + 1,
         maxRetries: MAX_RETRIES,
       });
@@ -152,23 +153,24 @@ export const useUserSyncRedux = (): UseUserSyncReduxReturn => {
       syncedRef.current = false; // Allow retry on error
       lastUserIdRef.current = null;
     }
-  }, [clerkUser, isLoaded, retryCount, dispatch, MAX_RETRIES]);
+  }, [session, status, retryCount, dispatch, MAX_RETRIES]);
 
   // Reset sync state when user changes
   useEffect(() => {
-    if (clerkUser?.id && clerkUser.id !== lastUserIdRef.current) {
+    if (session?.user?.id && session.user.id !== lastUserIdRef.current) {
       syncedRef.current = false;
       lastUserIdRef.current = null;
       dispatch(resetSyncState());
     }
-  }, [clerkUser?.id, dispatch]);
+  }, [session?.user?.id, dispatch]);
 
   // Auto-sync when user is loaded - use ref to track sync attempts
   useEffect(() => {
-    if (clerkUser && isLoaded && !syncedRef.current && canRetry) {
+    const isLoaded = status !== 'loading';
+    if (session?.user && isLoaded && !syncedRef.current && canRetry) {
       syncUser();
     }
-  }, [clerkUser, isLoaded, syncUser, canRetry]);
+  }, [session?.user, status, syncUser, canRetry]);
 
   return {
     isLoading,

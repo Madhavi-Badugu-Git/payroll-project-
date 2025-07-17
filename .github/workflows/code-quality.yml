@@ -30,7 +30,7 @@ jobs:
         run: npm run lint
 
       - name: Check Prettier formatting
-        run: npm run format:check
+        run: npm run prettier
 
       - name: Run type checking
         run: npm run build --if-present || npx tsc --noEmit

@@ -24,24 +24,24 @@ export async function generateEmployeeId(): Promise<string> {
 
     // Ensure the generated ID is unique (in case of race conditions)
     const existingEmployee = await prisma.employee.findUnique({
-      where: { empId: employeeId },
+      where: { employeeNumber: employeeId },
     });
 
     if (existingEmployee) {
       // If ID exists, try with a higher number
       const allEmployees = await prisma.employee.findMany({
-        select: { empId: true },
+        select: { employeeNumber: true },
         where: {
-          empId: {
+          employeeNumber: {
             startsWith: `${prefix}-`,
           },
         },
-        orderBy: { empId: 'desc' },
+        orderBy: { employeeNumber: 'desc' },
       });
 
       let maxNumber = 0;
       for (const emp of allEmployees) {
-        const numberPart = emp.empId.split('-')[1];
+        const numberPart = emp.employeeNumber.split('-')[1];
         if (numberPart && !isNaN(parseInt(numberPart))) {
           maxNumber = Math.max(maxNumber, parseInt(numberPart));
         }

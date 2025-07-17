@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 interface LeaveAccumulation {
   id: string;
-  empId: string;
+  employeeNumber: string;
   year: number;
   month: number;
   monthName: string;
@@ -17,7 +17,7 @@ interface LeaveAccumulation {
 
 interface LeaveTransaction {
   id: string;
-  empId: string;
+  employeeNumber: string;
   leaveApplicationId: string | null;
   transactionType: string;
   days: number;
@@ -111,13 +111,13 @@ export class LeaveManagementService {
     // Create leave balance record
     await prisma.leaveBalance.upsert({
       where: {
-        empId_year: {
-          empId,
+        employeeId_year: {
+          employeeId: empId,
           year: currentYear,
         },
       },
       create: {
-        empId,
+        employeeId: empId,
         year: currentYear,
         totalAllocated: proRata.totalFirstYearAllocation,
         totalUsed: 0,
@@ -133,14 +133,14 @@ export class LeaveManagementService {
     // Create leave accumulation record for joining month
     await prisma.leaveAccumulation.upsert({
       where: {
-        empId_year_month: {
-          empId,
+        employeeId_year_month: {
+          employeeId: empId,
           year: proRata.joiningYear,
           month: proRata.joiningMonth,
         },
       },
       create: {
-        empId,
+        employeeId: empId,
         year: proRata.joiningYear,
         month: proRata.joiningMonth,
         monthName: new Date(proRata.joiningYear, proRata.joiningMonth - 1).toLocaleString(
@@ -160,7 +160,7 @@ export class LeaveManagementService {
     // Create leave transaction for initial allocation
     await prisma.leaveTransaction.create({
       data: {
-        empId,
+        employeeId: empId,
         transactionType: 'CREDIT',
         days: proRata.totalFirstYearAllocation,
         balanceBefore: 0,
@@ -188,13 +188,13 @@ export class LeaveManagementService {
     const activeEmployees = await prisma.employee.findMany({
       where: {
         status: 'Active',
-        joiningDate: {
+        dateOfJoining: {
           lt: new Date(currentYear, currentMonth - 1, 1), // Joined before this month
         },
       },
       select: {
-        empId: true,
-        joiningDate: true,
+        id: true,
+        dateOfJoining: true,
       },
     });
 
@@ -202,8 +202,8 @@ export class LeaveManagementService {
       // Check if allocation already exists for this month
       const existingAllocation = await prisma.leaveAccumulation.findUnique({
         where: {
-          empId_year_month: {
-            empId: employee.empId,
+          employeeId_year_month: {
+            employeeId: employee.id,
             year: currentYear,
             month: currentMonth,
           },
@@ -214,8 +214,8 @@ export class LeaveManagementService {
         // Get current balance
         const currentBalance = await prisma.leaveBalance.findUnique({
           where: {
-            empId_year: {
-              empId: employee.empId,
+            employeeId_year: {
+              employeeId: employee.id,
               year: currentYear,
             },
           },
@@ -225,7 +225,7 @@ export class LeaveManagementService {
           // Create leave accumulation record
           await prisma.leaveAccumulation.create({
             data: {
-              empId: employee.empId,
+              employeeId: employee.id,
               year: currentYear,
               month: currentMonth,
               monthName,
@@ -241,8 +241,8 @@ export class LeaveManagementService {
 
           await prisma.leaveBalance.update({
             where: {
-              empId_year: {
-                empId: employee.empId,
+              employeeId_year: {
+                employeeId: employee.id,
                 year: currentYear,
               },
             },
@@ -255,7 +255,7 @@ export class LeaveManagementService {
           // Create leave transaction
           await prisma.leaveTransaction.create({
             data: {
-              empId: employee.empId,
+              employeeId: employee.id,
               transactionType: 'CREDIT',
               days: monthlyAllocation,
               balanceBefore: currentBalance.totalAvailable,
@@ -282,8 +282,8 @@ export class LeaveManagementService {
     // Get current balance
     const currentBalance = await prisma.leaveBalance.findUnique({
       where: {
-        empId_year: {
-          empId,
+        employeeId_year: {
+          employeeId: empId,
           year: currentYear,
         },
       },
@@ -299,8 +299,8 @@ export class LeaveManagementService {
 
     await prisma.leaveBalance.update({
       where: {
-        empId_year: {
-          empId,
+        employeeId_year: {
+          employeeId: empId,
           year: currentYear,
         },
       },
@@ -313,7 +313,7 @@ export class LeaveManagementService {
     // Create leave transaction
     await prisma.leaveTransaction.create({
       data: {
-        empId,
+        employeeId: empId,
         leaveApplicationId,
         transactionType: 'DEBIT',
         days: -days, // Negative for deduction
@@ -340,8 +340,8 @@ export class LeaveManagementService {
     // Get current balance
     const currentBalance = await prisma.leaveBalance.findUnique({
       where: {
-        empId_year: {
-          empId,
+        employeeId_year: {
+          employeeId: empId,
           year: currentYear,
         },
       },
@@ -354,8 +354,8 @@ export class LeaveManagementService {
 
       await prisma.leaveBalance.update({
         where: {
-          empId_year: {
-            empId,
+          employeeId_year: {
+            employeeId: empId,
             year: currentYear,
           },
         },
@@ -368,7 +368,7 @@ export class LeaveManagementService {
       // Create leave transaction
       await prisma.leaveTransaction.create({
         data: {
-          empId,
+          employeeId: empId,
           leaveApplicationId,
           transactionType: 'CREDIT',
           days: days,
@@ -397,8 +397,8 @@ export class LeaveManagementService {
     // Get leave balance
     const balance = await prisma.leaveBalance.findUnique({
       where: {
-        empId_year: {
-          empId,
+        employeeId_year: {
+          employeeId: empId,
           year: targetYear,
         },
       },
@@ -407,7 +407,7 @@ export class LeaveManagementService {
     // Get leave accumulations
     const accumulations = await prisma.leaveAccumulation.findMany({
       where: {
-        empId,
+        employeeId: empId,
         year: targetYear,
       },
       orderBy: {
@@ -418,7 +418,7 @@ export class LeaveManagementService {
     // Get leave transactions
     const transactions = await prisma.leaveTransaction.findMany({
       where: {
-        empId,
+        employeeId: empId,
         transactionDate: {
           gte: new Date(targetYear, 0, 1),
           lte: new Date(targetYear, 11, 31),
@@ -450,8 +450,14 @@ export class LeaveManagementService {
             carryForward: balance.carryForward,
           }
         : null,
-      accumulations,
-      transactions,
+      accumulations: accumulations.map(acc => ({
+        ...acc,
+        employeeNumber: empId, // Map employeeId to employeeNumber for interface compatibility
+      })),
+      transactions: transactions.map(trans => ({
+        ...trans,
+        employeeNumber: empId, // Map employeeId to employeeNumber for interface compatibility
+      })),
     };
   }
 
@@ -474,7 +480,7 @@ export class LeaveManagementService {
       include: {
         employee: {
           select: {
-            empId: true,
+            id: true,
             status: true,
           },
         },
@@ -489,13 +495,13 @@ export class LeaveManagementService {
         // Create next year's balance
         await prisma.leaveBalance.upsert({
           where: {
-            empId_year: {
-              empId: balance.empId,
+            employeeId_year: {
+              employeeId: balance.employeeId,
               year: nextYear,
             },
           },
           create: {
-            empId: balance.empId,
+            employeeId: balance.employeeId,
             year: nextYear,
             totalAllocated: carryForward,
             totalUsed: 0,
@@ -513,7 +519,7 @@ export class LeaveManagementService {
         if (carryForward > 0) {
           await prisma.leaveTransaction.create({
             data: {
-              empId: balance.empId,
+              employeeId: balance.employeeId,
               transactionType: 'CREDIT',
               days: carryForward,
               balanceBefore: 0,
@@ -526,7 +532,7 @@ export class LeaveManagementService {
           // Create accumulation record for carry forward
           await prisma.leaveAccumulation.create({
             data: {
-              empId: balance.empId,
+              employeeId: balance.employeeId,
               year: nextYear,
               month: 1,
               monthName: 'January',

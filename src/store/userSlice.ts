@@ -2,16 +2,16 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 export interface User {
   id: string;
-  clerkId: string;
   email: string;
   firstName?: string | null;
   lastName?: string | null;
   imageUrl?: string | null;
+  roles?: string[]; // Add roles array
 }
 
 export interface LinkedEmployee {
   id: string;
-  empId: string;
+  employeeNumber: string;
   name: string;
   designation: string;
 }

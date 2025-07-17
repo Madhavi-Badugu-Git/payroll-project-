@@ -1,4 +1,5 @@
 import { PrismaClient } from '@/generated/prisma';
+import { logError } from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
@@ -10,14 +11,24 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const search = searchParams.get('search') || '';
-    const empId = searchParams.get('empId') || '';
+    const employeeNumber = searchParams.get('employeeNumber') || searchParams.get('empId') || '';
 
     const skip = (page - 1) * limit;
 
     const whereClause: Record<string, unknown> = {};
 
-    if (empId) {
-      whereClause.empId = empId;
+    if (employeeNumber) {
+      // Find employee by employeeNumber first
+      const employee = await prisma.employee.findUnique({
+        where: { employeeNumber },
+        select: { id: true },
+      });
+
+      if (employee) {
+        whereClause.employeeId = employee.id;
+      } else {
+        return NextResponse.json({ promotions: [], totalCount: 0 });
+      }
     }
 
     if (search) {
@@ -29,7 +40,7 @@ export async function GET(request: NextRequest) {
             OR: [
               { firstName: { contains: search, mode: 'insensitive' as const } },
               { lastName: { contains: search, mode: 'insensitive' as const } },
-              { empId: { contains: search, mode: 'insensitive' as const } },
+              { employeeNumber: { contains: search, mode: 'insensitive' as const } },
             ],
           },
         },
@@ -43,10 +54,10 @@ export async function GET(request: NextRequest) {
       include: {
         employee: {
           select: {
-            empId: true,
+            employeeNumber: true,
             firstName: true,
             lastName: true,
-            officeEmail: true,
+            email: true,
             currentDesignation: true,
           },
         },
@@ -62,7 +73,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ promotions, totalCount });
   } catch (error) {
-    console.error('Error fetching promotions:', error);
+    logError('Error fetching promotions', error);
     return NextResponse.json({ error: 'Failed to fetch promotions' }, { status: 500 });
   }
 }
@@ -71,16 +82,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { empId, salary, revisionDate, currentPosition, previousPosition } = body;
+    const { employeeNumber, empId, salary, revisionDate, currentPosition, previousPosition } = body;
+
+    // Support both employeeNumber and legacy empId
+    const empNumber = employeeNumber || empId;
 
     // Validate required fields
-    if (!empId || !salary || !revisionDate || !currentPosition || !previousPosition) {
+    if (!empNumber || !salary || !revisionDate || !currentPosition || !previousPosition) {
       return NextResponse.json({ error: 'All required fields must be provided' }, { status: 400 });
     }
 
     // Check if employee exists
     const existingEmployee = await prisma.employee.findUnique({
-      where: { empId: empId },
+      where: { employeeNumber: empNumber },
     });
 
     if (!existingEmployee) {
@@ -97,7 +111,7 @@ export async function POST(request: NextRequest) {
       // Create the promotion record
       const promotion = await tx.employeePromotion.create({
         data: {
-          empId,
+          employeeId: existingEmployee.id,
           salary: parseFloat(salary),
           revisionDate: new Date(revisionDate),
           currentPosition,
@@ -106,10 +120,10 @@ export async function POST(request: NextRequest) {
         include: {
           employee: {
             select: {
-              empId: true,
+              employeeNumber: true,
               firstName: true,
               lastName: true,
-              officeEmail: true,
+              email: true,
               currentDesignation: true,
             },
           },
@@ -118,9 +132,9 @@ export async function POST(request: NextRequest) {
 
       // Update employee's current salary and designation to match the promotion
       await tx.employee.update({
-        where: { empId: empId },
+        where: { id: existingEmployee.id },
         data: {
-          salary: parseFloat(salary),
+          currentSalary: parseFloat(salary),
           currentDesignation: currentPosition,
           updatedAt: new Date(),
         },
@@ -131,7 +145,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    console.error('Error creating promotion:', error);
+    logError('Error creating promotion', error);
     return NextResponse.json({ error: 'Failed to create promotion' }, { status: 500 });
   }
 }

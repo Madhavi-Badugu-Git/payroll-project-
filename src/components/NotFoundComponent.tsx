@@ -1,7 +1,7 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
 import { ArrowLeftIcon, HomeIcon } from '@heroicons/react/24/outline';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 
 interface NotFoundComponentProps {
@@ -17,7 +17,8 @@ export default function NotFoundComponent({
   showBackButton = true,
   showHomeButton = true,
 }: NotFoundComponentProps) {
-  const { isSignedIn } = useUser();
+  const { status } = useSession();
+  const isSignedIn = status === 'authenticated';
 
   return (
     <div className='min-h-[60vh] flex items-center justify-center px-4'>

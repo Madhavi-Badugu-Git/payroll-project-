@@ -1,5 +1,6 @@
 import { LeaveManagementService } from '@/lib/leaveManagement';
 import { NextRequest, NextResponse } from 'next/server';
+import { logError } from '@/lib/logger';
 
 // POST - Process scheduled leave management tasks
 export async function POST(request: NextRequest) {
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
-    console.error('Error processing scheduled leave task:', error);
+    logError('Error processing scheduled leave task', error);
     return NextResponse.json(
       {
         error: 'Failed to process scheduled leave task',

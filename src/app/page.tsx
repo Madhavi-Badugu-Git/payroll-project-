@@ -1,56 +1,59 @@
 'use client';
 
-import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs';
+import { useSession } from 'next-auth/react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import AppLayout from './AppLayout';
 
 export default function Home() {
+  const { data: session, status } = useSession();
   const router = useRouter();
 
   // Handle redirect for signed-in users
   useEffect(() => {
-    // This will run on the client side after the component mounts
-    const handleRedirect = () => {
+    if (status === 'authenticated' && session) {
       router.push('/dashboard');
-    };
+    }
+  }, [session, status, router]);
 
-    // Use a small delay to ensure Clerk state is loaded
-    const timer = setTimeout(handleRedirect, 100);
-    return () => clearTimeout(timer);
-  }, [router]);
+  // Show loading state while checking authentication
+  if (status === 'loading') {
+    return (
+      <AppLayout>
+        <div className='flex flex-col items-center justify-center h-full'>
+          <p>Loading...</p>
+        </div>
+      </AppLayout>
+    );
+  }
 
-  return (
-    <AppLayout>
-      <SignedOut>
+  // Show sign-in prompt for unauthenticated users
+  if (status === 'unauthenticated') {
+    return (
+      <AppLayout>
         <div className='flex flex-col items-center justify-center h-full'>
           <h1 className='text-2xl font-semibold mb-4'>Welcome to TriNits Payroll</h1>
           <p className='mb-6 text-gray-600 dark:text-gray-400'>
             Please sign in to access your dashboard.
           </p>
-          <SignInButton mode='modal'>
-            <button className='px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'>
-              Sign In
-            </button>
-          </SignInButton>
+          <Link
+            href='/auth/signin'
+            className='px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
+          >
+            Sign In
+          </Link>
         </div>
-      </SignedOut>
-      <SignedIn>
-        {/* Redirect to dashboard if signed in */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if (typeof window !== 'undefined') {
-                window.location.href = '/dashboard';
-              }
-            `,
-          }}
-        />
-        {/* Fallback content, though redirect should occur */}
-        <div className='flex flex-col items-center justify-center h-full'>
-          <p>Redirecting to dashboard...</p>
-        </div>
-      </SignedIn>
+      </AppLayout>
+    );
+  }
+
+  // Authenticated users get redirected, but show fallback
+  return (
+    <AppLayout>
+      <div className='flex flex-col items-center justify-center h-full'>
+        <p>Redirecting to dashboard...</p>
+      </div>
     </AppLayout>
   );
 }

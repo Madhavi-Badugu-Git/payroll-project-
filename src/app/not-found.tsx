@@ -1,12 +1,14 @@
 'use client';
 
 import NotFoundComponent from '@/components/NotFoundComponent';
-import { useUser } from '@clerk/nextjs';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import AppLayout from './AppLayout';
 
 export default function NotFound() {
-  const { isSignedIn, isLoaded } = useUser();
+  const { status } = useSession();
+  const isSignedIn = status === 'authenticated';
+  const isLoaded = status !== 'loading';
 
   // Show loading state while checking authentication
   if (!isLoaded) {

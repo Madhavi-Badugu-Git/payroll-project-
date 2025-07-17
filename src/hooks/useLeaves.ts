@@ -1,6 +1,8 @@
 import axios, { AxiosError } from 'axios';
 import { useCallback, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { getApiUrl } from '../lib/api';
+import { RootState } from '../store';
 
 export interface LeaveEntry {
   id: string;
@@ -25,7 +27,7 @@ export interface LeaveBalance {
 
 export interface LeaveAccumulation {
   id: string;
-  empId: string;
+  employeeNumber: string;
   year: number;
   month: number;
   monthName: string;
@@ -36,7 +38,7 @@ export interface LeaveAccumulation {
 
 export interface LeaveTransaction {
   id: string;
-  empId: string;
+  employeeNumber: string;
   leaveApplicationId: string | null;
   transactionType: string;
   days: number;
@@ -73,7 +75,7 @@ interface UseLeavesReturn {
   isSubmitting: boolean;
   error: string | null;
   fetchLeaves: () => Promise<void>;
-  fetchLeaveInfo: (empId: string, year: number) => Promise<void>;
+  fetchLeaveInfo: (employeeNumber: string, year: number) => Promise<void>;
   fetchConfigurations: () => Promise<void>;
   createLeave: (
     leaveData: Omit<
@@ -90,7 +92,7 @@ interface UseLeavesReturn {
   ) => Promise<void>;
   deleteLeave: (leaveId: string) => Promise<void>;
   cancelLeave: (leaveId: string) => Promise<void>;
-  refreshData: (empId?: string, year?: number) => Promise<void>;
+  refreshData: (employeeNumber?: string, year?: number) => Promise<void>;
 }
 
 /**
@@ -108,6 +110,10 @@ interface UseLeavesReturn {
  * @returns {UseLeavesReturn} Hook state and functions for leave operations
  */
 export const useLeaves = (): UseLeavesReturn => {
+  // Get employee number from Redux state
+  const linkedEmployee = useSelector((state: RootState) => state.user.linkedEmployee);
+  const employeeNumber = linkedEmployee?.employeeNumber;
+
   const [leaves, setLeaves] = useState<LeaveEntry[]>([]);
   const [leaveInfo, setLeaveInfo] = useState<LeaveInfo>({
     balance: null,
@@ -172,10 +178,16 @@ export const useLeaves = (): UseLeavesReturn => {
   const fetchLeaves = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     setError(null);
-
     try {
+      console.log('fetchLeaves debug:', { employeeNumber, linkedEmployee });
+
       const url = getApiUrl('/leave');
-      const response = await axios.get<Omit<LeaveEntry, 'noOfDays' | 'appliedDate'>[]>(url);
+      const params = employeeNumber ? `?employeeNumber=${employeeNumber}` : '';
+      console.log('Making request to:', `${url}${params}`);
+
+      const response = await axios.get<Omit<LeaveEntry, 'noOfDays' | 'appliedDate'>[]>(
+        `${url}${params}`
+      );
 
       const processedLeaves = response.data.map(leave => {
         const from = new Date(leave.startDate);
@@ -234,32 +246,35 @@ export const useLeaves = (): UseLeavesReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [employeeNumber, linkedEmployee]);
 
-  const fetchLeaveInfo = useCallback(async (empId: string, year: number): Promise<void> => {
-    try {
-      setError(null);
-      const url = getApiUrl(`/leave-management?empId=${empId}&year=${year}`);
-      const response = await axios.get<LeaveInfo>(url);
+  const fetchLeaveInfo = useCallback(
+    async (employeeNumber: string, year: number): Promise<void> => {
+      try {
+        setError(null);
+        const url = getApiUrl(`/leave-management?empId=${employeeNumber}&year=${year}`);
+        const response = await axios.get<LeaveInfo>(url);
 
-      setLeaveInfo(response.data);
+        setLeaveInfo(response.data);
 
-      console.log('Leave info fetched successfully:', {
-        empId,
-        year,
-        url,
-      });
-    } catch (error) {
-      console.error('Error fetching leave info:', {
-        empId,
-        year,
-        error,
-      });
+        console.log('Leave info fetched successfully:', {
+          employeeNumber,
+          year,
+          url,
+        });
+      } catch (error) {
+        console.error('Error fetching leave info:', {
+          employeeNumber,
+          year,
+          error,
+        });
 
-      // Don't set error for leave info as it might not be initialized yet
-      // Just log the error and keep empty state
-    }
-  }, []);
+        // Don't set error for leave info as it might not be initialized yet
+        // Just log the error and keep empty state
+      }
+    },
+    []
+  );
 
   const createLeave = useCallback(
     async (
@@ -273,7 +288,8 @@ export const useLeaves = (): UseLeavesReturn => {
 
       try {
         const url = getApiUrl('/leave');
-        const response = await axios.post(url, leaveData);
+        const payload = { ...leaveData, employeeNumber };
+        const response = await axios.post(url, payload);
 
         console.log('Leave created successfully:', {
           leaveData,
@@ -312,7 +328,7 @@ export const useLeaves = (): UseLeavesReturn => {
         setIsSubmitting(false);
       }
     },
-    [fetchLeaves]
+    [fetchLeaves, employeeNumber]
   );
 
   const updateLeave = useCallback(
@@ -328,7 +344,8 @@ export const useLeaves = (): UseLeavesReturn => {
 
       try {
         const url = getApiUrl(`/leave/${leaveId}`);
-        const response = await axios.put(url, leaveData);
+        const payload = { ...leaveData, employeeNumber };
+        const response = await axios.put(url, payload);
 
         console.log('Leave updated successfully:', {
           leaveId,
@@ -369,7 +386,7 @@ export const useLeaves = (): UseLeavesReturn => {
         setIsSubmitting(false);
       }
     },
-    [fetchLeaves]
+    [fetchLeaves, employeeNumber]
   );
 
   const deleteLeave = useCallback(
@@ -469,10 +486,10 @@ export const useLeaves = (): UseLeavesReturn => {
   );
 
   const refreshData = useCallback(
-    async (empId?: string, year?: number): Promise<void> => {
+    async (employeeNumber?: string, year?: number): Promise<void> => {
       await fetchLeaves();
-      if (empId && year) {
-        await fetchLeaveInfo(empId, year);
+      if (employeeNumber && year) {
+        await fetchLeaveInfo(employeeNumber, year);
       }
     },
     [fetchLeaves, fetchLeaveInfo]

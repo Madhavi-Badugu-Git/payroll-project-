@@ -85,19 +85,23 @@ export default function RegularizationAdminPage() {
           <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg p-6'>
             <h3 className='text-sm font-medium text-gray-500 dark:text-gray-400'>Total Requests</h3>
             <p className='text-2xl font-semibold text-gray-800 dark:text-white'>
-              {requests.length}
+              {Array.isArray(requests) ? requests.length : 0}
             </p>
           </div>
           <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg p-6'>
             <h3 className='text-sm font-medium text-gray-500 dark:text-gray-400'>Pending</h3>
             <p className='text-2xl font-semibold text-yellow-600 dark:text-yellow-400'>
-              {requests.filter(r => r.status.toLowerCase() === 'pending').length}
+              {Array.isArray(requests)
+                ? requests.filter(r => r.status.toLowerCase() === 'pending').length
+                : 0}
             </p>
           </div>
           <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg p-6'>
             <h3 className='text-sm font-medium text-gray-500 dark:text-gray-400'>Processed</h3>
             <p className='text-2xl font-semibold text-green-600 dark:text-green-400'>
-              {requests.filter(r => r.status.toLowerCase() !== 'pending').length}
+              {Array.isArray(requests)
+                ? requests.filter(r => r.status.toLowerCase() !== 'pending').length
+                : 0}
             </p>
           </div>
         </div>
@@ -110,9 +114,11 @@ export default function RegularizationAdminPage() {
             </h2>
           </div>
 
-          {requests.length === 0 ? (
+          {!Array.isArray(requests) || requests.length === 0 ? (
             <div className='p-6 text-center text-gray-500 dark:text-gray-400'>
-              No regularization requests found.
+              {!Array.isArray(requests)
+                ? 'Error loading requests.'
+                : 'No regularization requests found.'}
             </div>
           ) : (
             <div className='overflow-x-auto'>
@@ -146,74 +152,77 @@ export default function RegularizationAdminPage() {
                   </tr>
                 </thead>
                 <tbody className='bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700'>
-                  {requests.map(request => (
-                    <tr key={request.id}>
-                      <td className='px-6 py-4 whitespace-nowrap'>
-                        <div>
-                          <div className='text-sm font-medium text-gray-900 dark:text-white'>
-                            {request.employee
-                              ? `${request.employee.firstName} ${request.employee.lastName}`
-                              : 'Unknown Employee'}
+                  {Array.isArray(requests) &&
+                    requests.map(request => (
+                      <tr key={request.id}>
+                        <td className='px-6 py-4 whitespace-nowrap'>
+                          <div>
+                            <div className='text-sm font-medium text-gray-900 dark:text-white'>
+                              {request.employee
+                                ? `${request.employee.firstName} ${request.employee.lastName}`
+                                : 'Unknown Employee'}
+                            </div>
+                            <div className='text-sm text-gray-500 dark:text-gray-400'>
+                              {request.employee?.id || request.employeeId}
+                            </div>
                           </div>
-                          <div className='text-sm text-gray-500 dark:text-gray-400'>
-                            {request.employee?.empId || request.employeeId}
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
+                          {formatDisplayDate(request.date)}
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
+                          <div>
+                            <div>In: {formatTime(request.attendance?.checkIn)}</div>
+                            <div>Out: {formatTime(request.attendance?.checkOut)}</div>
                           </div>
-                        </div>
-                      </td>
-                      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
-                        {formatDisplayDate(request.date)}
-                      </td>
-                      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
-                        <div>
-                          <div>In: {formatTime(request.attendance?.checkIn)}</div>
-                          <div>Out: {formatTime(request.attendance?.checkOut)}</div>
-                        </div>
-                      </td>
-                      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
-                        <div>
-                          <div>In: {formatTime(request.requestedCheckIn)}</div>
-                          <div>Out: {formatTime(request.requestedCheckOut)}</div>
-                        </div>
-                      </td>
-                      <td className='px-6 py-4 text-sm text-gray-500 dark:text-gray-300 max-w-xs'>
-                        <div className='truncate' title={request.reason}>
-                          {request.reason}
-                        </div>
-                      </td>
-                      <td className='px-6 py-4 whitespace-nowrap'>
-                        <span
-                          className={`px-2 py-1 text-xs font-semibold rounded ${getStatusBadgeClass(
-                            request.status
-                          )}`}
-                        >
-                          {request.status}
-                        </span>
-                      </td>
-                      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
-                        {formatDateTime(request.createdAt)}
-                      </td>
-                      <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
-                        {request.status.toLowerCase() === 'pending' ? (
-                          <div className='flex space-x-2'>
-                            <button
-                              onClick={() => handleApprove(request.id)}
-                              className='text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300'
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleReject(request.id)}
-                              className='text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300'
-                            >
-                              Reject
-                            </button>
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
+                          <div>
+                            <div>In: {formatTime(request.requestedCheckIn)}</div>
+                            <div>Out: {formatTime(request.requestedCheckOut)}</div>
                           </div>
-                        ) : (
-                          <span className='text-gray-400 dark:text-gray-500'>{request.status}</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className='px-6 py-4 text-sm text-gray-500 dark:text-gray-300 max-w-xs'>
+                          <div className='truncate' title={request.reason}>
+                            {request.reason}
+                          </div>
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap'>
+                          <span
+                            className={`px-2 py-1 text-xs font-semibold rounded ${getStatusBadgeClass(
+                              request.status
+                            )}`}
+                          >
+                            {request.status}
+                          </span>
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300'>
+                          {formatDateTime(request.createdAt)}
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
+                          {request.status.toLowerCase() === 'pending' ? (
+                            <div className='flex space-x-2'>
+                              <button
+                                onClick={() => handleApprove(request.id)}
+                                className='text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300'
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleReject(request.id)}
+                                className='text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300'
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className='text-gray-400 dark:text-gray-500'>
+                              {request.status}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>

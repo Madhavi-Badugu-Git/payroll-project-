@@ -1,5 +1,6 @@
 import { PrismaClient } from '@/generated/prisma';
 import { NextResponse } from 'next/server';
+import { logError } from '@/lib/logger';
 
 const prisma = new PrismaClient();
 
@@ -15,7 +16,7 @@ export async function GET() {
       databaseLatency = Date.now() - start;
     } catch (dbError) {
       databaseStatus = 'disconnected';
-      console.error('Database health check failed:', dbError);
+      logError('Database health check failed', dbError);
     }
 
     const healthData = {

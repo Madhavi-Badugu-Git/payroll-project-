@@ -4,9 +4,9 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { useEmployees } from '@/hooks/useEmployees';
 import { usePromotions } from '@/hooks/usePromotions';
-import { hasAdminRole } from '@/lib/userutils';
+import { hasAdminRoleClient } from '@/lib/clientRoleUtils';
+import { RootState } from '@/store';
 import { Promotion } from '@/types';
-import { useUser } from '@clerk/nextjs';
 import {
   ArrowLeftIcon,
   PencilIcon,
@@ -15,7 +15,8 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import AppLayout from '../../AppLayout';
 
 // Designations enum/constants
@@ -39,8 +40,8 @@ const designationOptions = Object.values(DESIGNATIONS);
 export default function EmployeeDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useUser();
-  const isAdmin = useMemo(() => (user ? hasAdminRole(user) : false), [user]);
+  const reduxUser = useSelector((state: RootState) => state.user.user);
+  const isAdmin = hasAdminRoleClient(reduxUser);
 
   const { employee, isLoading, error, fetchEmployee } = useEmployees();
   const {

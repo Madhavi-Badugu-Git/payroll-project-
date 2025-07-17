@@ -4,8 +4,8 @@ export function getApiUrl(path: string): string {
     path = '/' + path;
   }
 
-  // Next.js automatically handles basePath for all routes including API routes
-  // So we just return the API path and let Next.js add the basePath
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/payroll';
+  // Only use basePath in production
+  const basePath =
+    process.env.NODE_ENV === 'production' ? process.env.NEXT_PUBLIC_BASE_PATH || '/payroll' : '';
   return `${basePath}/api${path}`;
 }

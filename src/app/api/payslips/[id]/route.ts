@@ -1,4 +1,5 @@
 import { PrismaClient } from '@/generated/prisma';
+import { logError } from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
@@ -13,13 +14,13 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       include: {
         employee: {
           select: {
-            empId: true,
+            employeeNumber: true,
             firstName: true,
             lastName: true,
-            officeEmail: true,
+            email: true,
             currentDesignation: true,
             stream: true,
-            joiningDate: true,
+            dateOfJoining: true,
           },
         },
       },
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // Transform data to match the frontend interface
     const transformedPayslip = {
       id: payslip.id,
-      employeeId: payslip.empId,
+      employeeId: payslip.employeeId,
       employeeName: `${payslip.employee.firstName} ${payslip.employee.lastName}`,
       payslipForMonth: payslip.payslipForMonth,
       payslipDate: payslip.payslipDate.toISOString().split('T')[0].split('-').reverse().join('/'),
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 
     return NextResponse.json(transformedPayslip);
   } catch (error) {
-    console.error('Error fetching payslip:', error);
+    logError('Error fetching payslip', error);
     return NextResponse.json({ error: 'Failed to fetch payslip' }, { status: 500 });
   }
 }
@@ -130,13 +131,13 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
       include: {
         employee: {
           select: {
-            empId: true,
+            employeeNumber: true,
             firstName: true,
             lastName: true,
-            officeEmail: true,
+            email: true,
             currentDesignation: true,
             stream: true,
-            joiningDate: true,
+            dateOfJoining: true,
           },
         },
       },
@@ -145,7 +146,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     // Transform response to match frontend interface
     const transformedPayslip = {
       id: updatedPayslip.id,
-      employeeId: updatedPayslip.empId,
+      employeeId: updatedPayslip.employeeId,
       employeeName: `${updatedPayslip.employee.firstName} ${updatedPayslip.employee.lastName}`,
       payslipForMonth: updatedPayslip.payslipForMonth,
       payslipDate: updatedPayslip.payslipDate
@@ -176,7 +177,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
     return NextResponse.json(transformedPayslip);
   } catch (error) {
-    console.error('Error updating payslip:', error);
+    logError('Error updating payslip', error);
     return NextResponse.json({ error: 'Failed to update payslip' }, { status: 500 });
   }
 }
@@ -201,7 +202,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
 
     return NextResponse.json({ message: 'Payslip deleted successfully' });
   } catch (error) {
-    console.error('Error deleting payslip:', error);
+    logError('Error deleting payslip', error);
     return NextResponse.json({ error: 'Failed to delete payslip' }, { status: 500 });
   }
 }

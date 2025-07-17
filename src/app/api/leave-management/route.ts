@@ -1,16 +1,21 @@
 import { LeaveManagementService } from '@/lib/leaveManagement';
+import { logError } from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET - Get employee leave information
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const empId = searchParams.get('empId');
+    // Accept both empId and employeeNumber for compatibility
+    const empId = searchParams.get('empId') || searchParams.get('employeeNumber');
     const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : undefined;
     const action = searchParams.get('action');
 
     if (!empId) {
-      return NextResponse.json({ error: 'Employee ID is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Employee ID is required (empId or employeeNumber)' },
+        { status: 400 }
+      );
     }
 
     if (action === 'calculate-prorata') {
@@ -40,7 +45,7 @@ export async function GET(request: NextRequest) {
     const leaveInfo = await LeaveManagementService.getEmployeeLeaveInfo(empId, year);
     return NextResponse.json(leaveInfo);
   } catch (error) {
-    console.error('Error fetching leave information:', error);
+    logError('Error fetching leave information', error);
     return NextResponse.json({ error: 'Failed to fetch leave information' }, { status: 500 });
   }
 }
@@ -106,7 +111,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
-    console.error('Error processing leave management request:', error);
+    logError('Error processing leave management request', error);
     return NextResponse.json(
       { error: 'Failed to process leave management request' },
       { status: 500 }

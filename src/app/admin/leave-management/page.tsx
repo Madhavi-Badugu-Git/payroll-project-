@@ -3,8 +3,8 @@
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { useLeaveManagement } from '@/hooks/useLeaveManagement';
-import { hasAdminRole } from '@/lib/userutils';
-import { useUser } from '@clerk/nextjs';
+import { hasAdminRoleClient } from '@/lib/clientRoleUtils';
+import { RootState } from '@/store';
 import {
   CalendarDaysIcon,
   ChartBarIcon,
@@ -14,12 +14,13 @@ import {
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import AppLayout from '../../AppLayout';
 
 export default function AdminLeaveManagementPage() {
-  const { user } = useUser();
-  const isAdmin = useMemo(() => (user ? hasAdminRole(user) : false), [user]);
+  const reduxUser = useSelector((state: RootState) => state.user.user);
+  const isAdmin = hasAdminRoleClient(reduxUser);
 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
@@ -266,8 +267,8 @@ export default function AdminLeaveManagementPage() {
                 </tr>
               </thead>
               <tbody className='bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700'>
-                {employeeLeaveInfo.map(employee => (
-                  <tr key={employee.empId}>
+                {employeeLeaveInfo.map((employee, index) => (
+                  <tr key={employee.empId || `employee-${index}`}>
                     <td className='px-6 py-4 whitespace-nowrap'>
                       <div>
                         <div className='text-sm font-medium text-gray-900 dark:text-white'>

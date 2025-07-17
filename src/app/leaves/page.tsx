@@ -1,6 +1,5 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
 import {
   CalendarDaysIcon,
   ChartBarIcon,
@@ -10,15 +9,24 @@ import {
   TrashIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { LeaveEntry, useLeaves } from '../../hooks/useLeaves';
+import { RootState } from '../../store';
 import AppLayout from '../AppLayout';
 
 const LEAVE_TYPES: LeaveEntry['leaveType'][] = ['Sick', 'Casual', 'Earned'];
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function EnhancedLeavesPage() {
-  const { user } = useUser();
+  const { data: session } = useSession();
+  const user = session?.user;
+
+  // Get employee ID from Redux state
+  const linkedEmployee = useSelector((state: RootState) => state.user.linkedEmployee);
+  const empId = linkedEmployee?.id;
+
   const {
     leaves,
     leaveInfo,
@@ -53,28 +61,6 @@ export default function EnhancedLeavesPage() {
 
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
 
-  // Get employee ID from user
-  const getEmployeeId = useCallback((): string | null => {
-    if (!user) return null;
-
-    if (user.publicMetadata?.empId) {
-      return user.publicMetadata.empId as string;
-    }
-
-    // Fallback mapping for demo
-    const emailToEmpIdMap: { [key: string]: string } = {
-      'john.doe@company.com': 'EMP001',
-      'jane.smith@company.com': 'EMP002',
-      'mike.johnson@company.com': 'EMP003',
-    };
-
-    if (user.emailAddresses?.[0]?.emailAddress) {
-      return emailToEmpIdMap[user.emailAddresses[0].emailAddress] || null;
-    }
-
-    return null;
-  }, [user]);
-
   // Update sanctioned leave per year when configurations change
   useEffect(() => {
     const sanctionedLeave = configurations.SANCTIONED_LEAVE_PER_YEAR;
@@ -89,12 +75,11 @@ export default function EnhancedLeavesPage() {
       fetchConfigurations();
       fetchLeaves();
 
-      const empId = getEmployeeId();
       if (empId) {
         fetchLeaveInfo(empId, CURRENT_YEAR);
       }
     }
-  }, [user, fetchLeaves, fetchConfigurations, fetchLeaveInfo, getEmployeeId]);
+  }, [user, empId, fetchLeaves, fetchConfigurations, fetchLeaveInfo]);
 
   // Handle hook errors
   useEffect(() => {
@@ -223,7 +208,6 @@ export default function EnhancedLeavesPage() {
         setToast({ message: 'Leave request deleted successfully.', type: 'success' });
 
         // Refresh leave info
-        const empId = getEmployeeId();
         if (empId) {
           await fetchLeaveInfo(empId, CURRENT_YEAR);
         }
@@ -245,7 +229,6 @@ export default function EnhancedLeavesPage() {
       setToast({ message: 'Leave request cancelled successfully.', type: 'success' });
 
       // Refresh leave info
-      const empId = getEmployeeId();
       if (empId) {
         await fetchLeaveInfo(empId, CURRENT_YEAR);
       }
@@ -307,7 +290,6 @@ export default function EnhancedLeavesPage() {
       }
 
       // Refresh leave info
-      const empId = getEmployeeId();
       if (empId) {
         await fetchLeaveInfo(empId, CURRENT_YEAR);
       }

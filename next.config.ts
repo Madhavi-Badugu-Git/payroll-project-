@@ -5,9 +5,11 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
 
-  // Base path for subdirectory deployment
-  basePath: '/payroll',
-  assetPrefix: '/payroll',
+  // Base path for subdirectory deployment (only in production)
+  ...(process.env.NODE_ENV === 'production' && {
+    basePath: '/payroll',
+    assetPrefix: '/payroll',
+  }),
 
   // Image optimization
   images: {
@@ -80,19 +82,6 @@ const nextConfig: NextConfig = {
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
     NEXT_PUBLIC_BASE_PATH: process.env.NEXT_PUBLIC_BASE_PATH,
-  },
-
-  // Experimental features for better performance
-  experimental: {
-    // Enable modern bundling
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
-      },
-    },
   },
 };
 

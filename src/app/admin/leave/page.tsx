@@ -116,7 +116,7 @@ export default function LeaveAdminPage() {
                           <div className='font-medium'>
                             {leave.employee.firstName} {leave.employee.lastName}
                           </div>
-                          <div className='text-gray-500 text-xs'>{leave.employee.empId}</div>
+                          <div className='text-gray-500 text-xs'>{leave.employee.id}</div>
                         </div>
                       ) : (
                         leave.employeeId

@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -15,18 +9,16 @@ datasource db {
 }
 
 model Attendance {
-  id            String    @id @default(cuid())
-  employeeId    String
-  date          DateTime  @db.Date
-  checkIn       DateTime?
-  checkOut      DateTime?
-  status        String    // "Present", "Absent", "Half Day", "Holiday", "Weekend"
-  totalHours    Float?
-  overtimeHours Float?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id              String                     @id @default(cuid())
+  employeeId      String
+  date            DateTime                   @db.Date
+  checkIn         DateTime?
+  checkOut        DateTime?
+  status          String
+  totalHours      Float?
+  overtimeHours   Float?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
   regularizations AttendanceRegularization[]
 
   @@unique([employeeId, date])
@@ -41,79 +33,138 @@ model Holiday {
 }
 
 model Employee {
-  id                 String    @id @default(cuid())
-  empId              String    @unique
-  firstName          String
-  lastName           String
-  officeEmail        String    @unique
-  personalEmail      String?
-  mobileNo           String
-  dateOfBirth        DateTime? @db.Date
-  salary             Float?
-  joiningDate        DateTime  @db.Date
-  exitDate           DateTime? @db.Date
-  status             String    // "Active", "Inactive", "On Leave"
-  currentDesignation String
-  employmentType     String    // "Full-time", "Part-time", "Contract", "Intern"
-  stream             String    // "Engineering", "Design", "Marketing", "HR", "Finance", etc.
-  githubUserId       String?
-  linkedinId         String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-
-  user     User?    @relation(fields: [userId], references: [id])
-  userId   String?  @unique
-
-  leaveApplications LeaveApplication[]
+  id                        String                     @id @default(cuid())
+  employeeNumber            String                     @unique
+  firstName                 String
+  lastName                  String
+  email                     String                     @unique
+  personalEmail             String?
+  mobileNo                  String
+  dateOfBirth               DateTime?                  @db.Date
+  currentSalary             Float?
+  dateOfJoining             DateTime                   @db.Date
+  exitDate                  DateTime?                  @db.Date
+  status                    String
+  currentDesignation        String
+  employmentType            String
+  stream                    String
+  githubUserId              String?
+  linkedinId                String?
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  userId                    String?                    @unique
   attendanceRegularizations AttendanceRegularization[]
-  promotions EmployeePromotion[]
-  payslips Payslip[]
-  leaveBalances LeaveBalance[]
-  leaveAccumulations LeaveAccumulation[]
-  leaveTransactions LeaveTransaction[]
+  user                      User?                      @relation(fields: [userId], references: [id])
+  promotions                EmployeePromotion[]
+  leaveAccumulations        LeaveAccumulation[]
+  leaveApplications         LeaveApplication[]
+  leaveBalances             LeaveBalance[]
+  leaveTransactions         LeaveTransaction[]
+  payslips                  Payslip[]
 }
 
 model AttendanceRegularization {
-  id               String    @id @default(cuid())
-  attendanceId     String
-  attendance       Attendance @relation(fields: [attendanceId], references: [id])
-  employeeId       String
-  employee         Employee @relation(fields: [employeeId], references: [id])
-  date             DateTime  @db.Date
-  reason           String
-  status           String    // "Pending", "Approved", "Rejected"
-  requestedCheckIn DateTime?
+  id                String     @id @default(cuid())
+  attendanceId      String
+  employeeId        String
+  date              DateTime   @db.Date
+  reason            String
+  status            String
+  requestedCheckIn  DateTime?
   requestedCheckOut DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  attendance        Attendance @relation(fields: [attendanceId], references: [id])
+  employee          Employee   @relation(fields: [employeeId], references: [id])
 }
 
 model LeaveApplication {
-  id           String   @id @default(cuid())
-  employeeId   String
-  employee     Employee @relation(fields: [employeeId], references: [id])
-  startDate    DateTime @db.Date
-  endDate      DateTime @db.Date
-  leaveType    String   // e.g. "Sick", "Casual", "Earned"
-  reason       String
-  status       String   // "PENDING", "APPROVED", "REJECTED", "Cancelled"
-  appliedAt    DateTime @default(now())
-  reviewedAt   DateTime?
-  reviewedBy   String?
-  
+  id                String             @id @default(cuid())
+  employeeId        String
+  startDate         DateTime           @db.Date
+  endDate           DateTime           @db.Date
+  leaveType         String
+  reason            String
+  status            String
+  appliedAt         DateTime           @default(now())
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  employee          Employee           @relation(fields: [employeeId], references: [id])
   leaveTransactions LeaveTransaction[]
 }
 
 model User {
-  id        String    @id @default(cuid())
-  clerkId   String    @unique
-  email     String    @unique
-  firstName String?
-  lastName  String?
-  imageUrl  String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  employee  Employee?
+  id                     String     @id @default(cuid())
+  email                  String     @unique
+  firstName              String?
+  lastName               String?
+  hashedPassword         String?
+  emailVerified          DateTime?
+  image                  String?
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+  accounts               Account[]
+  sessions               Session[]
+  employee               Employee?
+  userRoles              UserRole[]
+}
+
+model Role {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  permissions String[]   // Array of permission strings
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  userRoles   UserRole[]
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  assignedAt DateTime @default(now())
+  assignedBy String?  // User ID of who assigned this role
+  isActive  Boolean  @default(true)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
 
 model Configuration {
@@ -127,93 +178,87 @@ model Configuration {
 
 model EmployeePromotion {
   id               String   @id @default(cuid())
-  empId            String
-  employee         Employee @relation(fields: [empId], references: [empId])
+  employeeId       String
   salary           Float
   revisionDate     DateTime @db.Date
   currentPosition  String
   previousPosition String
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  employee         Employee @relation(fields: [employeeId], references: [id])
 }
 
 model LeaveBalance {
-  id              String   @id @default(cuid())
-  empId           String
-  employee        Employee @relation(fields: [empId], references: [empId])
-  year            Int
-  totalAllocated  Float    // Total leaves allocated for the year (including pro-rata)
-  totalUsed       Float    // Total leaves used
-  totalAvailable  Float    // Available balance (totalAllocated - totalUsed)
-  carryForward    Float    @default(0) // Leaves carried forward from previous year
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  @@unique([empId, year])
+  id             String   @id @default(cuid())
+  employeeId     String
+  year           Int
+  totalAllocated Float
+  totalUsed      Float
+  totalAvailable Float
+  carryForward   Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  employee       Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, year])
 }
 
 model LeaveAccumulation {
-  id            String   @id @default(cuid())
-  empId         String
-  employee      Employee @relation(fields: [empId], references: [empId])
-  year          Int
-  month         Int      // 1-12
-  monthName     String   // "January", "February", etc.
-  allocatedDays Float    // Leaves allocated for this month
-  reason        String   // "JOINING_PRORATA", "MONTHLY_ALLOCATION", "CARRY_FORWARD", "ADJUSTMENT"
-  accumulationDate DateTime @db.Date // Date when leaves were allocated
-  createdAt     DateTime @default(now())
-  
-  @@unique([empId, year, month])
+  id               String   @id @default(cuid())
+  employeeId       String
+  year             Int
+  month            Int
+  monthName        String
+  allocatedDays    Float
+  reason           String
+  accumulationDate DateTime @db.Date
+  createdAt        DateTime @default(now())
+  employee         Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, year, month])
 }
 
 model LeaveTransaction {
-  id                String            @id @default(cuid())
-  empId             String
-  employee          Employee          @relation(fields: [empId], references: [empId])
+  id                 String            @id @default(cuid())
+  employeeId         String
   leaveApplicationId String?
-  leaveApplication  LeaveApplication? @relation(fields: [leaveApplicationId], references: [id])
-  transactionType   String            // "DEBIT", "CREDIT", "ADJUSTMENT"
-  days              Float             // Number of days (positive for credit, negative for debit)
-  balanceBefore     Float             // Balance before this transaction
-  balanceAfter      Float             // Balance after this transaction
-  reason            String            // Reason for the transaction
-  transactionDate   DateTime          @db.Date
-  createdAt         DateTime          @default(now())
+  transactionType    String
+  days               Float
+  balanceBefore      Float
+  balanceAfter       Float
+  reason             String
+  transactionDate    DateTime          @db.Date
+  createdAt          DateTime          @default(now())
+  employee           Employee          @relation(fields: [employeeId], references: [id])
+  leaveApplication   LeaveApplication? @relation(fields: [leaveApplicationId], references: [id])
 }
 
 model Payslip {
-  id                String   @id @default(cuid())
-  empId             String
-  payslipForMonth   String   // e.g., "May 2024"
-  payslipDate       DateTime @db.Date
-  location          String
-  department        String
-  designation       String
-  doj               DateTime @db.Date // Date of Joining
-  gradeBand         String
-  attendedDays      Int
-  arrearDays        Int      @default(0)
-  daysInMonth       Int
-  
-  // Earnings
-  basic             Float
-  hra               Float
-  specialAllowance  Float
-  lta               Float
-  totalSalary       Float
-  
-  // Deductions
-  providentFund     Float    @default(0)
-  professionalTax   Float    @default(0)
-  incomeTax         Float    @default(0)
-  netSalary         Float
-  
-  year              Int
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  employee          Employee @relation(fields: [empId], references: [empId])
-  
-  @@unique([empId, payslipForMonth, year])
+  id               String   @id @default(cuid())
+  employeeId       String
+  payslipForMonth  String
+  payslipDate      DateTime @db.Date
+  location         String
+  department       String
+  designation      String
+  doj              DateTime @db.Date
+  gradeBand        String
+  attendedDays     Int
+  arrearDays       Int      @default(0)
+  daysInMonth      Int
+  basic            Float
+  hra              Float
+  specialAllowance Float
+  lta              Float
+  totalSalary      Float
+  providentFund    Float    @default(0)
+  professionalTax  Float    @default(0)
+  incomeTax        Float    @default(0)
+  netSalary        Float
+  year             Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  employee         Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, payslipForMonth, year])
 }

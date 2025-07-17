@@ -86,22 +86,35 @@ export const useDashboard = (): UseDashboardReturn => {
     setError(null);
 
     try {
-      // Fetch both leave and holiday data in parallel
-      const [leaveResponse, holidayResponse] = await Promise.all([
-        axios.get<LeaveEntry[]>(getApiUrl('/leave')),
-        axios.get<Holiday[]>(getApiUrl('/holidays')),
-      ]);
-
-      const leaves = leaveResponse.data || [];
+      // Fetch holidays first (this should always work)
+      const holidayResponse = await axios.get<Holiday[]>(getApiUrl('/holidays'));
       const holidays = holidayResponse.data || [];
-
-      // Calculate leave summary
-      const summary = calculateLeaveSummary(leaves);
-      setLeaveSummary(summary);
 
       // Find next holiday
       const nextHol = findNextHoliday(holidays);
       setNextHoliday(nextHol);
+
+      // Try to fetch leave data - this might fail if user doesn't have employee record
+      try {
+        const leaveResponse = await axios.get<LeaveEntry[]>(getApiUrl('/leave'));
+        const leaves = leaveResponse.data || [];
+
+        // Calculate leave summary
+        const summary = calculateLeaveSummary(leaves);
+        setLeaveSummary(summary);
+      } catch (leaveErr) {
+        // If leave fetch fails, just set empty summary but continue with holidays
+        console.warn('Could not fetch leave data - user may not have employee record:', leaveErr);
+        setLeaveSummary({
+          totalSanctioned: LEAVES_PER_MONTH * 12,
+          totalUsed: 0,
+          totalAvailable: LEAVES_PER_MONTH * 12,
+          pending: 0,
+          approved: 0,
+          rejected: 0,
+          recentLeaves: [],
+        });
+      }
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? err.response?.data?.error || err.message

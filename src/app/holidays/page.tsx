@@ -1,14 +1,18 @@
 'use client';
 
 import { useHolidays } from '@/hooks/useHolidays';
-import { hasAdminRole } from '@/lib/userutils';
+import { hasAdminRoleClient } from '@/lib/clientRoleUtils';
+import { RootState } from '@/store';
 import { Holiday } from '@/types';
-import { useUser } from '@clerk/nextjs';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Download as DownloadIcon,
   Edit as EditIcon,
+  ExpandMore as ExpandMoreIcon,
+  PictureAsPdf as PictureAsPdfIcon,
+  TableChart as TableChartIcon,
+  Upload as UploadIcon,
 } from '@mui/icons-material';
 import {
   Alert,
@@ -23,6 +27,10 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
   Paper,
   Table,
   TableBody,
@@ -35,10 +43,12 @@ import {
 } from '@mui/material';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Calendar from 'react-calendar';
+import { useSelector } from 'react-redux';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import * as XLSX from 'xlsx';
 import AppLayout from '../AppLayout';
 import './react-calendar.css';
 
@@ -65,11 +75,20 @@ const formatDateAndGetDay = (dateString: string): { formattedDate: string; dayNa
   return { formattedDate, dayName };
 };
 
+// Type for import data
+interface ImportHolidayData {
+  Date: string;
+  Day: string;
+  Holiday: string;
+}
+
 export default function HolidaysPage() {
-  const { user } = useUser();
+  const reduxUser = useSelector((state: RootState) => state.user.user);
+  const currentYear = new Date().getFullYear();
 
   // Use custom hook for holidays data management
-  const { holidays, isLoading, error, createHoliday, updateHoliday, deleteHoliday } = useHolidays();
+  const { holidays, isLoading, error, createHoliday, updateHoliday, deleteHoliday, fetchHolidays } =
+    useHolidays();
 
   const [holidayDatesSet, setHolidayDatesSet] = useState(new Set<string>());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -82,7 +101,11 @@ export default function HolidaysPage() {
   const [holidayDate, setHolidayDate] = useState(toYYYYMMDD(new Date()));
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [holidayToDelete, setHolidayToDelete] = useState<Holiday | null>(null);
-  const isAdmin = useMemo(() => (user ? hasAdminRole(user) : false), [user]);
+  const [downloadMenuAnchorEl, setDownloadMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportHolidayData[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const isAdmin = hasAdminRoleClient(reduxUser);
 
   // Update holiday dates set when holidays change
   useEffect(() => {
@@ -105,7 +128,7 @@ export default function HolidaysPage() {
       // Add title
       doc.setFontSize(20);
       doc.setTextColor(40, 40, 40);
-      doc.text('Indian Holidays 2025', 14, 22);
+      doc.text(`Indian Holidays ${currentYear}`, 14, 22);
 
       // Add generation date
       doc.setFontSize(12);
@@ -152,7 +175,7 @@ export default function HolidaysPage() {
       }
 
       // Generate filename
-      const filename = `holidays-2025-${new Date().toISOString().split('T')[0]}.pdf`;
+      const filename = `holidays-${currentYear}-${new Date().toISOString().split('T')[0]}.pdf`;
 
       // Try multiple download methods
       try {
@@ -191,7 +214,214 @@ export default function HolidaysPage() {
         `Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}. Please check the help section above.`
       );
     }
-  }, [holidays]);
+  }, [currentYear, holidays]);
+
+  const downloadHolidaysExcel = useCallback(async () => {
+    try {
+      // Check if we have data
+      if (holidays.length === 0) {
+        toast.error('No holidays data to export');
+        return;
+      }
+
+      console.log('Generating Excel for', holidays.length, 'holidays');
+
+      // Prepare data for Excel
+      const excelData = holidays.map(holiday => {
+        const { formattedDate, dayName } = formatDateAndGetDay(holiday.date);
+        return {
+          Date: formattedDate,
+          Day: dayName,
+          Holiday: holiday.name,
+        };
+      });
+
+      // Create workbook and worksheet
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+      // Set column widths
+      const columnWidths = [
+        { wch: 15 }, // Date column
+        { wch: 15 }, // Day column
+        { wch: 30 }, // Holiday column
+      ];
+      worksheet['!cols'] = columnWidths;
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, `Holidays ${currentYear}`);
+
+      // Generate filename
+      const filename = `holidays-${currentYear}-${new Date().toISOString().split('T')[0]}.xlsx`;
+
+      // Save the file
+      XLSX.writeFile(workbook, filename);
+
+      toast.success('Holidays Excel file downloaded successfully!');
+      console.log('Excel downloaded successfully');
+    } catch (error) {
+      console.error('Excel generation failed:', error);
+      toast.error(
+        `Failed to generate Excel: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }, [currentYear, holidays]);
+
+  const handleDownloadMenuClick = (event: React.MouseEvent<HTMLElement>) => {
+    setDownloadMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleDownloadMenuClose = () => {
+    setDownloadMenuAnchorEl(null);
+  };
+
+  const handleDownloadPDF = () => {
+    downloadHolidaysPDF();
+    handleDownloadMenuClose();
+  };
+
+  const handleDownloadExcel = () => {
+    downloadHolidaysExcel();
+    handleDownloadMenuClose();
+  };
+
+  const handleImportClick = () => {
+    setShowImportDialog(true);
+  };
+
+  const handleImportDialogClose = () => {
+    setShowImportDialog(false);
+    setImportPreview([]);
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      toast.error('Please select a valid Excel file (.xlsx or .xls)');
+      return;
+    }
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet) as ImportHolidayData[];
+
+      // Validate data structure
+      if (jsonData.length === 0) {
+        toast.error('The Excel file is empty');
+        return;
+      }
+
+      const firstRow = jsonData[0];
+      if (!firstRow.Date || !firstRow.Day || !firstRow.Holiday) {
+        toast.error('Invalid Excel format. Expected columns: Date, Day, Holiday');
+        return;
+      }
+
+      setImportPreview(jsonData);
+    } catch (error) {
+      console.error('Error reading Excel file:', error);
+      toast.error('Error reading Excel file. Please check the file format.');
+    }
+  };
+
+  const convertDateFormat = (dateStr: string): string => {
+    // Convert from DD-MMM-YYYY to YYYY-MM-DD
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) throw new Error('Invalid date format');
+
+      const day = parts[0].padStart(2, '0');
+      const monthName = parts[1];
+      const year = parts[2];
+
+      // Convert month name to number
+      const monthMap: { [key: string]: string } = {
+        Jan: '01',
+        Feb: '02',
+        Mar: '03',
+        Apr: '04',
+        May: '05',
+        Jun: '06',
+        Jul: '07',
+        Aug: '08',
+        Sep: '09',
+        Oct: '10',
+        Nov: '11',
+        Dec: '12',
+      };
+
+      const month = monthMap[monthName];
+      if (!month) throw new Error('Invalid month name');
+
+      return `${year}-${month}-${day}`;
+    } catch (error) {
+      console.error('Date conversion error:', error);
+      return dateStr; // Return original if conversion fails
+    }
+  };
+  const handleImportConfirm = async () => {
+    if (!importPreview.length) return;
+
+    setIsImporting(true);
+    let successCount = 0;
+    let duplicateCount = 0;
+    let errorCount = 0;
+
+    try {
+      // Refresh holidays data to ensure we have the latest list
+      await fetchHolidays();
+
+      for (const row of importPreview) {
+        try {
+          const convertedDate = convertDateFormat(row.Date);
+
+          const result = await createHoliday({
+            name: row.Holiday,
+            date: convertedDate,
+          });
+
+          if (result === 'success') {
+            successCount++;
+          } else if (result === 'duplicate') {
+            duplicateCount++;
+            console.log(`Holiday already exists for ${convertedDate}: ${row.Holiday}`);
+          } else {
+            errorCount++;
+          }
+        } catch (error) {
+          console.error(`Error importing holiday ${row.Holiday}:`, error);
+          errorCount++;
+        }
+      }
+
+      // Show appropriate success/warning messages
+      if (successCount > 0) {
+        toast.success(`Successfully imported ${successCount} holidays`);
+      }
+      if (duplicateCount > 0) {
+        toast.info(`Skipped ${duplicateCount} holidays that already exist`);
+      }
+      if (errorCount > 0) {
+        toast.warning(`Failed to import ${errorCount} holidays`);
+      }
+
+      if (successCount === 0 && duplicateCount === 0 && errorCount === 0) {
+        toast.info('No holidays were imported');
+      }
+
+      handleImportDialogClose();
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error('Failed to import holidays');
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const getDayInfo = (date: Date, holidayList: Holiday[]): string => {
     const dateString = toYYYYMMDD(date);
@@ -282,7 +512,18 @@ export default function HolidaysPage() {
     if (isEditing && currentHoliday?.id) {
       success = await updateHoliday(currentHoliday.id, { name: holidayName, date: holidayDate });
     } else {
-      success = await createHoliday({ name: holidayName, date: holidayDate });
+      const result = await createHoliday({ name: holidayName, date: holidayDate });
+
+      if (result === 'success') {
+        success = true;
+        toast.success('Holiday created successfully!');
+      } else if (result === 'duplicate') {
+        toast.warning('A holiday already exists on this date');
+        return;
+      } else {
+        toast.error('Failed to create holiday');
+        return;
+      }
     }
 
     if (success) {
@@ -388,7 +629,7 @@ export default function HolidaysPage() {
 
         <Box display='flex' justifyContent='space-between' alignItems='center' mb={3}>
           <Typography variant='h4' component='h1' fontWeight='bold' color='primary'>
-            Indian Holidays 2025
+            Indian Holidays {currentYear}
           </Typography>
         </Box>
 
@@ -455,6 +696,78 @@ export default function HolidaysPage() {
           </DialogActions>
         </Dialog>
 
+        {/* Material-UI Import Dialog */}
+        <Dialog open={showImportDialog} onClose={handleImportDialogClose} maxWidth='md' fullWidth>
+          <DialogTitle>Import Holidays from Excel</DialogTitle>
+          <DialogContent>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant='body2' color='text.secondary' gutterBottom>
+                Upload an Excel file (.xlsx or .xls) with columns: Date, Day, Holiday
+              </Typography>
+              <Typography variant='caption' color='text.secondary'>
+                Date format should be DD-MMM-YYYY (e.g., 01-Jan-{currentYear})
+              </Typography>
+            </Box>
+
+            <input
+              type='file'
+              accept='.xlsx,.xls'
+              onChange={handleFileChange}
+              style={{ marginBottom: '16px' }}
+            />
+
+            {importPreview.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant='h6' gutterBottom>
+                  Preview ({importPreview.length} holidays)
+                </Typography>
+                <TableContainer component={Paper} sx={{ maxHeight: 300 }}>
+                  <Table size='small'>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Day</TableCell>
+                        <TableCell>Holiday</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {importPreview.slice(0, 10).map((row, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{row.Date}</TableCell>
+                          <TableCell>{row.Day}</TableCell>
+                          <TableCell>{row.Holiday}</TableCell>
+                        </TableRow>
+                      ))}
+                      {importPreview.length > 10 && (
+                        <TableRow>
+                          <TableCell colSpan={3} align='center' sx={{ fontStyle: 'italic' }}>
+                            ... and {importPreview.length - 10} more holidays
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleImportDialogClose} variant='outlined'>
+              Cancel
+            </Button>
+            {importPreview.length > 0 && (
+              <Button
+                onClick={handleImportConfirm}
+                variant='contained'
+                disabled={isImporting}
+                startIcon={isImporting ? <CircularProgress size={20} /> : null}
+              >
+                {isImporting ? 'Importing...' : `Import ${importPreview.length} Holidays`}
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
+
         <Container maxWidth='xl'>
           <Box display='flex' flexDirection={{ xs: 'column' }} gap={4}>
             <Box sx={{ width: { xs: '100%', md: 'auto' }, flexShrink: 0 }}>
@@ -496,18 +809,52 @@ export default function HolidaysPage() {
                 </Typography>
                 <Box display='flex' gap={1}>
                   <Button
-                    onClick={downloadHolidaysPDF}
+                    onClick={handleDownloadMenuClick}
                     variant='contained'
                     color='success'
                     startIcon={<DownloadIcon />}
-                    title='Download Holidays PDF'
+                    endIcon={<ExpandMoreIcon />}
+                    title='Download Holidays'
+                  ></Button>
+                  <Menu
+                    anchorEl={downloadMenuAnchorEl}
+                    open={Boolean(downloadMenuAnchorEl)}
+                    onClose={handleDownloadMenuClose}
+                    PaperProps={{
+                      elevation: 3,
+                    }}
                   >
-                    Download PDF
-                  </Button>
+                    <MenuItem onClick={handleDownloadPDF}>
+                      <ListItemIcon>
+                        <PictureAsPdfIcon fontSize='small' />
+                      </ListItemIcon>
+                      <ListItemText>PDF</ListItemText>
+                    </MenuItem>
+                    <MenuItem onClick={handleDownloadExcel}>
+                      <ListItemIcon>
+                        <TableChartIcon fontSize='small' />
+                      </ListItemIcon>
+                      <ListItemText>Excel</ListItemText>
+                    </MenuItem>
+                  </Menu>
                   {isAdmin && (
-                    <Button onClick={handleAddHoliday} variant='contained' startIcon={<AddIcon />}>
-                      Add Holiday
-                    </Button>
+                    <>
+                      <Button
+                        onClick={handleImportClick}
+                        variant='outlined'
+                        startIcon={<UploadIcon />}
+                        color='primary'
+                      >
+                        Import
+                      </Button>
+                      <Button
+                        onClick={handleAddHoliday}
+                        variant='contained'
+                        startIcon={<AddIcon />}
+                      >
+                        Add
+                      </Button>
+                    </>
                   )}
                 </Box>
               </Box>

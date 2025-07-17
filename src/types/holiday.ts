@@ -22,7 +22,7 @@ export interface UseHolidaysReturn {
   isLoading: boolean;
   error: string | null;
   fetchHolidays: () => Promise<void>;
-  createHoliday: (holiday: Omit<Holiday, 'id'>) => Promise<boolean>;
+  createHoliday: (holiday: Omit<Holiday, 'id'>) => Promise<'success' | 'duplicate' | 'error'>;
   updateHoliday: (id: string, holiday: Omit<Holiday, 'id'>) => Promise<boolean>;
   deleteHoliday: (id: string) => Promise<boolean>;
 }

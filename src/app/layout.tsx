@@ -1,6 +1,6 @@
+import { AuthProvider } from '@/components/AuthProvider';
 import UserSyncRedux from '@/components/UserSyncRedux';
 import { StoreProvider } from '@/store/StoreProvider';
-import { ClerkProvider } from '@clerk/nextjs';
 import { type Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { ToastContainer } from 'react-toastify';
@@ -28,11 +28,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider signInUrl='/sign-in' signUpUrl='/sign-up' afterSignOutUrl='/'>
-      <html lang='en'>
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang='en'>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <AuthProvider>
           <StoreProvider>
-            {/* <UserSync /> */}
             <UserSyncRedux />
             {children}
             <ToastContainer
@@ -47,8 +46,8 @@ export default function RootLayout({
               pauseOnHover
             />
           </StoreProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+        </AuthProvider>
+      </body>
+    </html>
   );
 }
