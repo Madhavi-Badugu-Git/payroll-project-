@@ -1,5 +1,6 @@
 'use client';
 
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { AttendanceEntry, LeaveApplicationData, useAttendance } from '@/hooks/useAttendance';
 import { combineDateAndTime, formatInputTime, formatTime24 } from '@/lib/dateUtils';
 import { RootState } from '@/store';
@@ -42,11 +43,65 @@ const getStatusColorClass = (status?: string) => {
       return 'text-orange-500 dark:text-orange-400 font-semibold';
     case 'Absent':
       return 'text-red-600 dark:text-red-400 font-semibold';
+    case 'Upcoming':
+      return 'text-gray-500 dark:text-gray-400 font-semibold';
     default:
       return 'text-gray-500 dark:text-gray-300';
   }
 };
 
+// Helper function to calculate attendance summary
+const calculateAttendanceSummary = (attendanceLog: AttendanceEntry[], viewedMonth: Date) => {
+  let totalDays = 0;
+  let presentDays = 0;
+  let halfDays = 0;
+  let absentDays = 0;
+  let upcomingDays = 0;
+  let totalHours = 0;
+
+  attendanceLog.forEach(entry => {
+    totalDays++;
+
+    switch (entry.status) {
+      case 'Present':
+        presentDays++;
+        break;
+      case 'Half Day':
+        halfDays++;
+        break;
+      case 'Absent':
+        absentDays++;
+        break;
+      case 'Upcoming':
+        upcomingDays++;
+        break;
+    }
+
+    if (entry.totalHours) {
+      totalHours += entry.totalHours;
+    }
+  });
+
+  // Convert total hours to hours and minutes
+  const totalMinutes = Math.round((totalHours % 1) * 60);
+  const wholeHours = Math.floor(totalHours);
+
+  // Calculate working days (excluding upcoming days for percentage calculation)
+  const workingDays = totalDays - upcomingDays;
+
+  return {
+    totalDaysInMonth: new Date(viewedMonth.getFullYear(), viewedMonth.getMonth() + 1, 0).getDate(),
+    workingDays,
+    presentDays,
+    halfDays,
+    absentDays,
+    upcomingDays,
+    totalHours: wholeHours,
+    totalMinutes: totalMinutes,
+    attendancePercentage:
+      workingDays > 0 ? Math.round(((presentDays + halfDays * 0.5) / workingDays) * 100) : 0,
+  };
+};
 export default function AttendancePage() {
   const { data: session } = useSession();
   const user = session?.user;
@@ -60,6 +115,10 @@ export default function AttendancePage() {
     handleAttendanceAction,
     submitLeaveApplication,
     submitRegularizationRequest,
+    showCheckoutDialog,
+    checkoutDialogMessage,
+    confirmCheckout,
+    cancelCheckout,
   } = useAttendance();
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -277,6 +336,79 @@ export default function AttendancePage() {
             {isLoading ? 'Processing...' : todayStatusMessage}
           </p>
         </div>
+
+        {/* Attendance Summary Card */}
+        {attendanceLog.length > 0 && (
+          <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-6'>
+            <h2 className='text-xl font-semibold text-gray-700 dark:text-white mb-4'>
+              Attendance Summary -{' '}
+              {viewedMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+            </h2>
+            <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
+              {(() => {
+                const summary = calculateAttendanceSummary(attendanceLog, viewedMonth);
+                return (
+                  <>
+                    <div className='bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg'>
+                      <div className='text-2xl font-bold text-blue-600 dark:text-blue-400'>
+                        {summary.totalDaysInMonth}
+                      </div>
+                      <div className='text-sm text-blue-600 dark:text-blue-400'>Total Days</div>
+                    </div>
+                    <div className='bg-green-50 dark:bg-green-900/20 p-4 rounded-lg'>
+                      <div className='text-2xl font-bold text-green-600 dark:text-green-400'>
+                        {summary.presentDays}
+                      </div>
+                      <div className='text-sm text-green-600 dark:text-green-400'>Present Days</div>
+                    </div>
+                    <div className='bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg'>
+                      <div className='text-2xl font-bold text-orange-600 dark:text-orange-400'>
+                        {summary.halfDays}
+                      </div>
+                      <div className='text-sm text-orange-600 dark:text-orange-400'>Half Days</div>
+                    </div>
+                    <div className='bg-red-50 dark:bg-red-900/20 p-4 rounded-lg'>
+                      <div className='text-2xl font-bold text-red-600 dark:text-red-400'>
+                        {summary.absentDays}
+                      </div>
+                      <div className='text-sm text-red-600 dark:text-red-400'>Absent Days</div>
+                    </div>
+                    <div className='bg-gray-50 dark:bg-gray-700 p-4 rounded-lg'>
+                      <div className='text-2xl font-bold text-gray-600 dark:text-gray-400'>
+                        {summary.upcomingDays}
+                      </div>
+                      <div className='text-sm text-gray-600 dark:text-gray-400'>Upcoming Days</div>
+                    </div>
+                    <div className='bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg'>
+                      <div className='text-2xl font-bold text-purple-600 dark:text-purple-400'>
+                        {summary.totalHours}h {summary.totalMinutes}m
+                      </div>
+                      <div className='text-sm text-purple-600 dark:text-purple-400'>
+                        Total Hours
+                      </div>
+                    </div>
+                    <div className='bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg'>
+                      <div className='text-2xl font-bold text-indigo-600 dark:text-indigo-400'>
+                        {summary.attendancePercentage}%
+                      </div>
+                      <div className='text-sm text-indigo-600 dark:text-indigo-400'>Attendance</div>
+                    </div>
+                    <div className='bg-gray-50 dark:bg-gray-700 p-4 rounded-lg md:col-span-2'>
+                      <div className='text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2'>
+                        Average Hours/Day
+                      </div>
+                      <div className='text-xl font-bold text-gray-600 dark:text-gray-400'>
+                        {summary.presentDays > 0
+                          ? `${(summary.totalHours / summary.presentDays).toFixed(1)}h`
+                          : '0h'}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
 
         <div className='flex justify-between items-center mt-8 mb-4'>
           <h2 className='text-xl font-semibold text-gray-700 dark:text-white'>
@@ -629,6 +761,18 @@ export default function AttendancePage() {
             </div>
           </div>
         )}
+
+        {/* Checkout confirmation dialog */}
+        <ConfirmDialog
+          open={showCheckoutDialog}
+          title='Checkout Confirmation'
+          message={checkoutDialogMessage}
+          onConfirm={confirmCheckout}
+          onCancel={cancelCheckout}
+          confirmText='Proceed'
+          cancelText='Cancel'
+          severity='warning'
+        />
       </div>
     </AppLayout>
   );

@@ -104,6 +104,11 @@ export async function GET(req: NextRequest) {
         let status = 'Absent';
         const holidayName = holidayMap.get(currentDateString);
 
+        // Check if the date is in the future
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const currentDateLocal = new Date(currentDateString + 'T00:00:00');
+
         if (holidayName) {
           status = holidayName;
         } else if (dayOfWeek === 0) {
@@ -117,6 +122,8 @@ export async function GET(req: NextRequest) {
           if (!isFirstSaturday && !isThirdSaturday) {
             status = 'Weekend';
           }
+        } else if (currentDateLocal > today) {
+          status = 'Upcoming';
         }
 
         fullMonthAttendance.push({

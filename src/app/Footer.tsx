@@ -7,39 +7,59 @@ export default function Footer() {
   const { status } = useSession();
 
   return (
-    <footer className='w-full bg-gray-800 text-white py-6 mt-auto'>
+    <footer className='w-full bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 py-6 mt-auto'>
       <div className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8'>
         <div className='grid grid-cols-1 sm:grid-cols-3 gap-6'>
           {/* Company Info */}
           <div>
-            <h3 className='text-lg font-semibold mb-2'>TriNits Technologies Pvt Ltd</h3>
-            <p className='text-sm'>Empowering businesses with innovative solutions.</p>
-            <p className='text-sm mt-1'>© {new Date().getFullYear()} All rights reserved.</p>
+            <h3 className='text-lg font-semibold mb-2 text-gray-800 dark:text-white'>
+              TriNits Technologies Pvt Ltd
+            </h3>
+            <p className='text-sm text-gray-600 dark:text-gray-300'>
+              Empowering businesses with innovative solutions.
+            </p>
+            <p className='text-sm mt-1 text-gray-600 dark:text-gray-300'>
+              © {new Date().getFullYear()} All rights reserved.
+            </p>
           </div>
 
           {/* Navigation Links */}
           <div>
-            <h3 className='text-lg font-semibold mb-2'>Quick Links</h3>
+            <h3 className='text-lg font-semibold mb-2 text-gray-800 dark:text-white'>
+              Quick Links
+            </h3>
             <ul className='space-y-1 text-sm'>
               <li>
-                <Link href='/' className='hover:text-blue-300'>
+                <Link
+                  href='/'
+                  className='text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                >
                   Home
                 </Link>
               </li>
               <li>
-                <Link href='/holidays' className='hover:text-blue-300'>
+                <Link
+                  href='/holidays'
+                  className='text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                >
                   Holidays
                 </Link>
               </li>
               {status === 'authenticated' && (
                 <>
                   <li>
-                    <Link href='/leaves' className='hover:text-blue-300'>
+                    <Link
+                      href='/leaves'
+                      className='text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                    >
                       Leaves
                     </Link>
                   </li>
                   <li>
-                    <Link href='/payslip' className='hover:text-blue-300'>
+                    <Link
+                      href='/payslip'
+                      className='text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                    >
                       Payslips
                     </Link>
                   </li>
@@ -47,7 +67,10 @@ export default function Footer() {
               )}
               {status === 'unauthenticated' && (
                 <li>
-                  <Link href='/auth/signin' className='hover:text-blue-300'>
+                  <Link
+                    href='/auth/signin'
+                    className='text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                  >
                     Sign In
                   </Link>
                 </li>
@@ -57,10 +80,13 @@ export default function Footer() {
 
           {/* Contact */}
           <div>
-            <h3 className='text-lg font-semibold mb-2'>Contact Us</h3>
+            <h3 className='text-lg font-semibold mb-2 text-gray-800 dark:text-white'>Contact Us</h3>
             <ul className='space-y-1 text-sm'>
               <li>
-                <a href='mailto:support@trinitstechnologies.com' className='hover:text-blue-300'>
+                <a
+                  href='mailto:support@trinitstechnologies.com'
+                  className='text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                >
                   support@trinitstechnologies.com
                 </a>
               </li>
@@ -69,7 +95,7 @@ export default function Footer() {
                   href='https://trinitstechnologies.com/'
                   target='_blank'
                   rel='noopener noreferrer'
-                  className='hover:text-blue-300'
+                  className='text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
                 >
                   https://trinitstechnologies.com/
                 </a>
@@ -77,7 +103,9 @@ export default function Footer() {
             </ul>
           </div>
         </div>
-        <div className='mt-4 text-center text-sm'>Built with ❤️ by TriNits Technologies</div>
+        <div className='mt-4 text-center text-sm text-gray-600 dark:text-gray-300'>
+          Built with ❤️ by TriNits Technologies
+        </div>
       </div>
     </footer>
   );
