@@ -1,11 +1,9 @@
-import { PrismaClient } from '@/generated/prisma';
 import { authOptions } from '@/lib/auth/config';
 import { logError } from '@/lib/logger';
+import prisma from '@/lib/prisma';
 // import { userHasRole } from '@/lib/roleUtils'; // Disabled until role system is implemented
 import { getServerSession } from 'next-auth/next';
 import { NextRequest, NextResponse } from 'next/server';
-
-const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,16 +58,7 @@ export async function GET(request: NextRequest) {
       skip,
       take: limit,
       include: {
-        employee: {
-          select: {
-            employeeNumber: true,
-            firstName: true,
-            lastName: true,
-            currentDesignation: true,
-            status: true,
-            dateOfJoining: true,
-          },
-        },
+        employee: true,
       },
       orderBy: [{ createdAt: 'desc' }],
     });
