@@ -94,26 +94,26 @@ model LeaveApplication {
 }
 
 model User {
-  id                     String     @id @default(cuid())
-  email                  String     @unique
-  firstName              String?
-  lastName               String?
-  hashedPassword         String?
-  emailVerified          DateTime?
-  image                  String?
-  createdAt              DateTime   @default(now())
-  updatedAt              DateTime   @updatedAt
-  accounts               Account[]
-  sessions               Session[]
-  employee               Employee?
-  userRoles              UserRole[]
+  id             String     @id @default(cuid())
+  email          String     @unique
+  firstName      String?
+  lastName       String?
+  hashedPassword String?
+  emailVerified  DateTime?
+  image          String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  accounts       Account[]
+  employee       Employee?
+  sessions       Session[]
+  userRoles      UserRole[]
 }
 
 model Role {
   id          String     @id @default(cuid())
   name        String     @unique
   description String?
-  permissions String[]   // Array of permission strings
+  permissions String[]
   isActive    Boolean    @default(true)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -121,14 +121,14 @@ model Role {
 }
 
 model UserRole {
-  id        String   @id @default(cuid())
-  userId    String
-  roleId    String
+  id         String   @id @default(cuid())
+  userId     String
+  roleId     String
   assignedAt DateTime @default(now())
-  assignedBy String?  // User ID of who assigned this role
-  isActive  Boolean  @default(true)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedBy String?
+  isActive   Boolean  @default(true)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, roleId])
 }
@@ -139,12 +139,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
