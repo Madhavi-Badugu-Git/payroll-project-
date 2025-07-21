@@ -74,7 +74,7 @@ export const useEmployees = (): UseEmployeesReturn => {
       );
 
       // Find the exact match by empId
-      const employee = response.data.employees.find(emp => emp.empId === empId);
+      const employee = response.data.employees.find(emp => emp.employeeNumber === empId);
 
       if (!employee) {
         throw new Error('Employee not found');
@@ -249,7 +249,7 @@ export const useEmployees = (): UseEmployeesReturn => {
 
           // Prepare employee data
           const employeeData: EmployeeFormData = {
-            empId: row['Employee ID'] || '',
+            employeeNumber: row['Employee ID'] || '',
             firstName: row['First Name'],
             lastName: row['Last Name'],
             email: row['Office Email'],
