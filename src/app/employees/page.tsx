@@ -20,7 +20,7 @@ import * as XLSX from 'xlsx';
 import AppLayout from '../AppLayout';
 
 const initialFormData: EmployeeFormData = {
-  empId: '',
+  employeeNumber: '',
   firstName: '',
   lastName: '',
   email: '',
@@ -119,7 +119,7 @@ export default function EmployeesPage() {
   const handleEditEmployee = (employee: Employee) => {
     setEditingEmployee(employee);
     setFormData({
-      empId: employee.empId,
+      employeeNumber: employee.employeeNumber,
       firstName: employee.firstName,
       lastName: employee.lastName,
       email: employee.email || employee.officeEmail,
@@ -210,7 +210,7 @@ export default function EmployeesPage() {
     try {
       // Prepare data for export
       const exportData = employees.map(employee => ({
-        'Employee ID': employee.empId,
+        'Employee ID': employee.employeeNumber,
         'First Name': employee.firstName,
         'Last Name': employee.lastName,
         'Office Email': employee.officeEmail,
@@ -351,8 +351,8 @@ export default function EmployeesPage() {
   };
 
   // Navigate to employee details
-  const handleEmployeeIdClick = (empId: string) => {
-    router.push(`/employees/${empId}`);
+  const handleEmployeeIdClick = (employeeNumber: string) => {
+    router.push(`/employees/${employeeNumber}`);
   };
 
   if (isLoading) {
@@ -414,11 +414,11 @@ export default function EmployeesPage() {
                         {employee.firstName} {employee.lastName}
                       </h3>
                       <button
-                        onClick={() => handleEmployeeIdClick(employee.empId)}
+                        onClick={() => handleEmployeeIdClick(employee.employeeNumber)}
                         className='text-sm text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline'
                         title='Click to view employee details'
                       >
-                        {employee.empId}
+                        {employee.employeeNumber}
                       </button>
                     </div>
                     <div className='flex space-x-2 flex-shrink-0'>
@@ -529,11 +529,11 @@ export default function EmployeesPage() {
                   <tr key={employee.id} className='hover:bg-gray-50 dark:hover:bg-gray-700'>
                     <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white'>
                       <button
-                        onClick={() => handleEmployeeIdClick(employee.empId)}
+                        onClick={() => handleEmployeeIdClick(employee.employeeNumber)}
                         className='underline text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300'
                         title='Click to view employee details'
                       >
-                        {employee.empId}
+                        {employee.employeeNumber}
                       </button>
                     </td>
                     <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white'>

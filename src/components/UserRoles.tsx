@@ -1,5 +1,6 @@
 'use client';
 
+import { getApiUrl } from '@/lib/api';
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
@@ -20,7 +21,9 @@ export default function UserRoles() {
       if (!session?.user?.id) return;
 
       try {
-        const response = await fetch(`/api/roles?action=getUserRoles&userId=${session.user.id}`);
+        const response = await fetch(
+          getApiUrl(`/roles?action=getUserRoles&userId=${session.user.id}`)
+        );
         if (response.ok) {
           const data = await response.json();
           setRoles(data.roles);

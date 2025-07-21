@@ -2,7 +2,7 @@
 
 export interface Employee {
   id: string;
-  empId: string;
+  employeeNumber: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -28,7 +28,7 @@ export interface Employee {
 }
 
 export interface EmployeeFormData {
-  empId: string;
+  employeeNumber?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -70,7 +70,7 @@ export interface EmployeePromotion {
 // Promotion interface used in employee details page
 export interface Promotion {
   id: string;
-  empId: string;
+  employeeNumber: string;
   salary: number;
   revisionDate: string;
   currentPosition: string;

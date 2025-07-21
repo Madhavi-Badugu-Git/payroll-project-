@@ -1,4 +1,4 @@
-import { PrismaClient } from './src/generated/prisma/index.js';
+import { PrismaClient } from '../src/generated/prisma/index.js';
 
 const prisma = new PrismaClient();
 
@@ -7,19 +7,19 @@ async function seedRoles() {
 
   const defaultRoles = [
     {
-      roleName: 'user',
+      name: 'user',
       description: 'Basic user with limited access to the system',
     },
     {
-      roleName: 'employee',
+      name: 'employee',
       description: 'Employee with access to leave management and attendance',
     },
     {
-      roleName: 'manager',
+      name: 'manager',
       description: 'Manager with team management capabilities',
     },
     {
-      roleName: 'admin',
+      name: 'admin',
       description: 'Administrator with full system access',
     },
   ];
@@ -27,16 +27,16 @@ async function seedRoles() {
   try {
     for (const role of defaultRoles) {
       const existingRole = await prisma.role.findUnique({
-        where: { roleName: role.roleName },
+        where: { name: role.name },
       });
 
       if (!existingRole) {
         const createdRole = await prisma.role.create({
           data: role,
         });
-        console.log(`✅ Created role: ${createdRole.roleName}`);
+        console.log(`✅ Created role: ${createdRole.name}`);
       } else {
-        console.log(`⚠️  Role already exists: ${role.roleName}`);
+        console.log(`⚠️  Role already exists: ${role.name}`);
       }
     }
 
