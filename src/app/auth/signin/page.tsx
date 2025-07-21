@@ -197,23 +197,6 @@ function SignInForm() {
             </div>
           </div>
 
-          <div className='flex items-center justify-between'>
-            <label className='flex items-center text-sm text-gray-700 dark:text-gray-300'>
-              <input
-                type='checkbox'
-                name='remember'
-                className='h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600'
-              />
-              <span className='ml-2'>Remember me</span>
-            </label>
-            <Link
-              href='/auth/forgot-password'
-              className='text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400'
-            >
-              Forgot your password?
-            </Link>
-          </div>
-
           <div>
             <button
               type='submit'
