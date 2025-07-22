@@ -114,5 +114,9 @@ export const authOptions: NextAuthOptions = {
     signIn: '/auth/signin',
     error: '/auth/error',
   },
+  // Handle basePath in production
+  ...(process.env.NODE_ENV === 'production' && {
+    basePath: '/payroll',
+  }),
   secret: process.env.NEXTAUTH_SECRET,
 };
