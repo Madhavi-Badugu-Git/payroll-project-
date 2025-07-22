@@ -87,7 +87,23 @@ export const config = {
     // Match all routes except static files, Next.js internals, and NextAuth API routes
     '/((?!.+\\.[\\w]+$|_next|api/auth).*)',
     '/',
-    // Exclude NextAuth API routes from middleware processing
-    '/(api|trpc)(?!/auth)(.*)',
+    // Match specific API routes (excluding auth)
+    '/api/employees/:path*',
+    '/api/leave/:path*',
+    '/api/leave-management/:path*',
+    '/api/reports/:path*',
+    '/api/cron/:path*',
+    '/api/sync-user/:path*',
+    '/api/promotions/:path*',
+    '/api/roles/:path*',
+    '/api/user-roles/:path*',
+    '/api/admin/:path*',
+    '/api/health/:path*',
+    '/api/holidays/:path*',
+    '/api/attendance/:path*',
+    '/api/test/:path*',
+    '/api/nextauth-debug/:path*',
+    '/api/test-auth/:path*',
+    '/trpc/:path*',
   ],
 };
