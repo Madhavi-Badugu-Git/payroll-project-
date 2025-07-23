@@ -111,8 +111,8 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    signIn: process.env.NODE_ENV === 'production' ? '/payroll/auth/signin' : '/auth/signin',
-    error: process.env.NODE_ENV === 'production' ? '/payroll/auth/error' : '/auth/error',
+    signIn: '/auth/signin',
+    error: '/auth/error',
   },
   debug: process.env.NODE_ENV === 'development',
   logger: {

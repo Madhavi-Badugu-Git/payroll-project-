@@ -2,8 +2,8 @@ import { edgeLogHttp } from '@/lib/edge-logger';
 import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
 
-// Get base path from environment
-const basePath = process.env.NODE_ENV === 'production' ? '/payroll' : '';
+// Get base path from Next.js config (consistent across environments)
+const basePath = '/payroll';
 
 // Define routes that should be public (no authentication required)
 const publicRoutes = ['/', '/auth/signin', '/auth/signup', '/holidays', '/api/auth', '/api/trpc'];
@@ -48,8 +48,7 @@ export default withAuth(
     if (protectedRoutes.some(route => pathWithoutBase.startsWith(route))) {
       if (!req.nextauth.token) {
         // Redirect to sign-in if not authenticated
-        const signInPath = `${basePath}/auth/signin`;
-        const signInUrl = new URL(signInPath, req.url);
+        const signInUrl = new URL('/auth/signin', req.url);
         signInUrl.searchParams.set('callbackUrl', req.url);
         return NextResponse.redirect(signInUrl);
       }
