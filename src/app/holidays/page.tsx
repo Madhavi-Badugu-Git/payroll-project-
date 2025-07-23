@@ -714,7 +714,7 @@ export default function HolidaysPage() {
                 <Typography variant='body2' gutterBottom>
                   Required format:
                 </Typography>
-                <Box component="ul" sx={{ mt: 1, mb: 1, pl: 2 }}>
+                <Box component='ul' sx={{ mt: 1, mb: 1, pl: 2 }}>
                   <li>Date: DD-MMM-YYYY (e.g., 01-Jan-{currentYear})</li>
                   <li>Day: Day of the week</li>
                   <li>Holiday: Name of the holiday</li>
@@ -747,7 +747,7 @@ export default function HolidaysPage() {
                   padding: '8px',
                   border: '1px solid #ccc',
                   borderRadius: '4px',
-                  width: '100%'
+                  width: '100%',
                 }}
               />
             </Box>

@@ -130,9 +130,13 @@ export default function EmployeesPage() {
       department: employee.department || '',
       designation: employee.currentDesignation || '',
       currentDesignation: employee.currentDesignation || '',
-      dateOfBirth: employee.dateOfBirth ? new Date(employee.dateOfBirth).toISOString().split('T')[0] : '',
+      dateOfBirth: employee.dateOfBirth
+        ? new Date(employee.dateOfBirth).toISOString().split('T')[0]
+        : '',
       salary: employee.salary ? employee.salary.toString() : '',
-      joiningDate: employee.joiningDate ? new Date(employee.joiningDate).toISOString().split('T')[0] : '',
+      joiningDate: employee.joiningDate
+        ? new Date(employee.joiningDate).toISOString().split('T')[0]
+        : '',
       exitDate: employee.exitDate ? new Date(employee.exitDate).toISOString().split('T')[0] : '',
       status: employee.status || 'Active',
       employmentType: employee.employmentType || 'Full-time',
