@@ -117,28 +117,33 @@ export default function EmployeesPage() {
 
   // Open edit modal
   const handleEditEmployee = (employee: Employee) => {
-    setEditingEmployee(employee);
-    setFormData({
-      employeeNumber: employee.employeeNumber,
-      firstName: employee.firstName,
-      lastName: employee.lastName,
-      email: employee.email || employee.officeEmail,
-      officeEmail: employee.officeEmail,
+    console.log('Employee data received:', employee);
+
+    const formDataToSet = {
+      employeeNumber: employee.employeeNumber || '',
+      firstName: employee.firstName || '',
+      lastName: employee.lastName || '',
+      email: employee.email || employee.officeEmail || '',
+      officeEmail: employee.officeEmail || '',
       personalEmail: employee.personalEmail || '',
-      mobileNo: employee.mobileNo,
-      department: employee.department || employee.stream,
-      designation: employee.designation || employee.currentDesignation,
-      currentDesignation: employee.currentDesignation,
-      dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.split('T')[0] : '',
+      mobileNo: employee.mobileNo || '',
+      department: employee.department || '',
+      designation: employee.currentDesignation || '',
+      currentDesignation: employee.currentDesignation || '',
+      dateOfBirth: employee.dateOfBirth ? new Date(employee.dateOfBirth).toISOString().split('T')[0] : '',
       salary: employee.salary ? employee.salary.toString() : '',
-      joiningDate: employee.joiningDate.split('T')[0], // Format date for input
-      exitDate: employee.exitDate ? employee.exitDate.split('T')[0] : '',
-      status: employee.status,
-      employmentType: employee.employmentType,
-      stream: employee.stream,
+      joiningDate: employee.joiningDate ? new Date(employee.joiningDate).toISOString().split('T')[0] : '',
+      exitDate: employee.exitDate ? new Date(employee.exitDate).toISOString().split('T')[0] : '',
+      status: employee.status || 'Active',
+      employmentType: employee.employmentType || 'Full-time',
+      stream: employee.stream || '',
       githubUserId: employee.githubUserId || '',
       linkedinId: employee.linkedinId || '',
-    });
+    };
+
+    console.log('Setting form data:', formDataToSet);
+    setEditingEmployee(employee);
+    setFormData(formDataToSet);
     setIsModalOpen(true);
   };
 
@@ -594,7 +599,7 @@ export default function EmployeesPage() {
         {/* Add/Edit Modal */}
         {isModalOpen && (
           <div className='fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50'>
-            <div className='relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800'>
+            <div className='relative top-20 mx-auto p-5 border w-full max-w-3xl shadow-lg rounded-md bg-white dark:bg-gray-800'>
               <div className='flex justify-between items-center mb-4'>
                 <h3 className='text-lg font-medium text-gray-900 dark:text-white'>
                   {editingEmployee ? 'Edit Employee' : 'Add New Employee'}

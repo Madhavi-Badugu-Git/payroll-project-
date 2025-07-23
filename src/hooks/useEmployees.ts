@@ -148,7 +148,27 @@ export const useEmployees = (): UseEmployeesReturn => {
       setError(null);
 
       try {
-        await axios.put(getApiUrl(`/employees/${id}`), employeeData);
+        // Transform form data to match API expectations, similar to createEmployee
+        const apiData = {
+          firstName: employeeData.firstName.trim(),
+          lastName: employeeData.lastName.trim(),
+          officeEmail: employeeData.officeEmail.trim(),
+          personalEmail: employeeData.personalEmail.trim() || null,
+          mobileNo: employeeData.mobileNo.trim(),
+          dateOfBirth: employeeData.dateOfBirth.trim() || null,
+          salary: employeeData.salary.trim() || null,
+          joiningDate: employeeData.joiningDate.trim(),
+          exitDate: employeeData.exitDate.trim() || null,
+          status: employeeData.status,
+          currentDesignation: employeeData.currentDesignation.trim(),
+          employmentType: employeeData.employmentType,
+          stream: employeeData.stream.trim(),
+          githubUserId: employeeData.githubUserId.trim() || null,
+          linkedinId: employeeData.linkedinId.trim() || null,
+        };
+
+        console.log('Updating employee with transformed data:', apiData);
+        await axios.put(getApiUrl(`/employees/${id}`), apiData);
         toast.success('Employee updated successfully!');
         await fetchEmployees(); // Refresh the list
         // If we're viewing this specific employee, refresh it too
@@ -157,12 +177,20 @@ export const useEmployees = (): UseEmployeesReturn => {
         }
         return true;
       } catch (err) {
-        const message = axios.isAxiosError(err)
-          ? err.response?.data?.error || err.message
-          : 'Failed to update employee';
+        let message = 'Failed to update employee';
+
+        if (axios.isAxiosError(err) && err.response?.data) {
+          const errorData = err.response.data;
+          // Use the detailed message if available, otherwise fall back to error
+          message = errorData.message || errorData.error || err.message;
+          console.error('Update employee API error:', errorData);
+        } else if (err instanceof Error) {
+          message = err.message;
+        }
+
         setError(message);
         console.error('Error updating employee:', err);
-        toast.error(`Failed to update employee: ${message}`);
+        toast.error(message);
         return false;
       }
     },

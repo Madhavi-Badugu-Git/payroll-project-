@@ -11,9 +11,9 @@
     "prettier-fix": "prettier --write .",
     "prettier": "prettier --check .",
     "format:staged": "prettier --write --ignore-unknown",
-    "seed": "node --loader ts-node/esm prisma/seed-simple.mts",
+    "seed": "npx tsx prisma/seed.ts",
     "seed:roles": "node --loader ts-node/esm prisma/seed-roles.mts",
-    "seed:all": "npm run seed && npm run seed:roles",
+    "seed:all": "npm run seed",
     "logs:clean": "rm -rf logs/*.log logs/*.log.*",
     "logs:view": "tail -f logs/app-*.log",
     "logs:errors": "tail -f logs/error-*.log",
@@ -94,6 +94,6 @@
     ]
   },
   "prisma": {
-    "seed": "node --loader ts-node/esm prisma/seed.mts"
+    "seed": "npx tsx prisma/seed.ts"
   }
 }
