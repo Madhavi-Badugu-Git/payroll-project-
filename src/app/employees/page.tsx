@@ -20,7 +20,7 @@ import * as XLSX from 'xlsx';
 import AppLayout from '../AppLayout';
 
 const initialFormData: EmployeeFormData = {
-  empId: '',
+  employeeNumber: '',
   firstName: '',
   lastName: '',
   email: '',
@@ -117,28 +117,37 @@ export default function EmployeesPage() {
 
   // Open edit modal
   const handleEditEmployee = (employee: Employee) => {
-    setEditingEmployee(employee);
-    setFormData({
-      empId: employee.empId,
-      firstName: employee.firstName,
-      lastName: employee.lastName,
-      email: employee.email || employee.officeEmail,
-      officeEmail: employee.officeEmail,
+    console.log('Employee data received:', employee);
+
+    const formDataToSet = {
+      employeeNumber: employee.employeeNumber || '',
+      firstName: employee.firstName || '',
+      lastName: employee.lastName || '',
+      email: employee.email || employee.officeEmail || '',
+      officeEmail: employee.officeEmail || '',
       personalEmail: employee.personalEmail || '',
-      mobileNo: employee.mobileNo,
-      department: employee.department || employee.stream,
-      designation: employee.designation || employee.currentDesignation,
-      currentDesignation: employee.currentDesignation,
-      dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.split('T')[0] : '',
+      mobileNo: employee.mobileNo || '',
+      department: employee.department || '',
+      designation: employee.currentDesignation || '',
+      currentDesignation: employee.currentDesignation || '',
+      dateOfBirth: employee.dateOfBirth
+        ? new Date(employee.dateOfBirth).toISOString().split('T')[0]
+        : '',
       salary: employee.salary ? employee.salary.toString() : '',
-      joiningDate: employee.joiningDate.split('T')[0], // Format date for input
-      exitDate: employee.exitDate ? employee.exitDate.split('T')[0] : '',
-      status: employee.status,
-      employmentType: employee.employmentType,
-      stream: employee.stream,
+      joiningDate: employee.joiningDate
+        ? new Date(employee.joiningDate).toISOString().split('T')[0]
+        : '',
+      exitDate: employee.exitDate ? new Date(employee.exitDate).toISOString().split('T')[0] : '',
+      status: employee.status || 'Active',
+      employmentType: employee.employmentType || 'Full-time',
+      stream: employee.stream || '',
       githubUserId: employee.githubUserId || '',
       linkedinId: employee.linkedinId || '',
-    });
+    };
+
+    console.log('Setting form data:', formDataToSet);
+    setEditingEmployee(employee);
+    setFormData(formDataToSet);
     setIsModalOpen(true);
   };
 
@@ -210,7 +219,7 @@ export default function EmployeesPage() {
     try {
       // Prepare data for export
       const exportData = employees.map(employee => ({
-        'Employee ID': employee.empId,
+        'Employee ID': employee.employeeNumber,
         'First Name': employee.firstName,
         'Last Name': employee.lastName,
         'Office Email': employee.officeEmail,
@@ -351,8 +360,8 @@ export default function EmployeesPage() {
   };
 
   // Navigate to employee details
-  const handleEmployeeIdClick = (empId: string) => {
-    router.push(`/employees/${empId}`);
+  const handleEmployeeIdClick = (employeeNumber: string) => {
+    router.push(`/employees/${employeeNumber}`);
   };
 
   if (isLoading) {
@@ -414,11 +423,11 @@ export default function EmployeesPage() {
                         {employee.firstName} {employee.lastName}
                       </h3>
                       <button
-                        onClick={() => handleEmployeeIdClick(employee.empId)}
+                        onClick={() => handleEmployeeIdClick(employee.employeeNumber)}
                         className='text-sm text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline'
                         title='Click to view employee details'
                       >
-                        {employee.empId}
+                        {employee.employeeNumber}
                       </button>
                     </div>
                     <div className='flex space-x-2 flex-shrink-0'>
@@ -529,11 +538,11 @@ export default function EmployeesPage() {
                   <tr key={employee.id} className='hover:bg-gray-50 dark:hover:bg-gray-700'>
                     <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white'>
                       <button
-                        onClick={() => handleEmployeeIdClick(employee.empId)}
+                        onClick={() => handleEmployeeIdClick(employee.employeeNumber)}
                         className='underline text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300'
                         title='Click to view employee details'
                       >
-                        {employee.empId}
+                        {employee.employeeNumber}
                       </button>
                     </td>
                     <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white'>
@@ -594,7 +603,7 @@ export default function EmployeesPage() {
         {/* Add/Edit Modal */}
         {isModalOpen && (
           <div className='fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50'>
-            <div className='relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800'>
+            <div className='relative top-20 mx-auto p-5 border w-full max-w-3xl shadow-lg rounded-md bg-white dark:bg-gray-800'>
               <div className='flex justify-between items-center mb-4'>
                 <h3 className='text-lg font-medium text-gray-900 dark:text-white'>
                   {editingEmployee ? 'Edit Employee' : 'Add New Employee'}

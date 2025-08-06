@@ -2,6 +2,9 @@ import { edgeLogHttp } from '@/lib/edge-logger';
 import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
 
+// Get base path from Next.js config (consistent across environments)
+const basePath = '/payroll';
+
 // Define routes that should be public (no authentication required)
 const publicRoutes = ['/', '/auth/signin', '/auth/signup', '/holidays', '/api/auth', '/api/trpc'];
 
@@ -12,13 +15,17 @@ export default withAuth(
   function middleware(req) {
     const { pathname } = req.nextUrl;
 
+    // Remove base path from pathname for route matching
+    const pathWithoutBase =
+      basePath && pathname.startsWith(basePath) ? pathname.slice(basePath.length) : pathname;
+
     // Log HTTP requests
     const { method, url } = req;
     const userAgent = req.headers.get('user-agent') || '';
     const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
 
     const isPublicRoute = publicRoutes.some(
-      route => pathname === route || pathname.startsWith(route + '/')
+      route => pathWithoutBase === route || pathWithoutBase.startsWith(route + '/')
     );
 
     edgeLogHttp(`${method} ${url}`, {
@@ -27,6 +34,9 @@ export default withAuth(
       userAgent,
       ip,
       isPublicRoute,
+      pathname,
+      pathWithoutBase,
+      basePath,
     });
 
     // Allow public routes
@@ -35,7 +45,7 @@ export default withAuth(
     }
 
     // Check if user is authenticated for protected routes
-    if (protectedRoutes.some(route => pathname.startsWith(route))) {
+    if (protectedRoutes.some(route => pathWithoutBase.startsWith(route))) {
       if (!req.nextauth.token) {
         // Redirect to sign-in if not authenticated
         const signInUrl = new URL('/auth/signin', req.url);
@@ -51,8 +61,16 @@ export default withAuth(
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
 
+        // Remove base path from pathname for route matching
+        const pathWithoutBase =
+          basePath && pathname.startsWith(basePath) ? pathname.slice(basePath.length) : pathname;
+
         // Allow public routes
-        if (publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))) {
+        if (
+          publicRoutes.some(
+            route => pathWithoutBase === route || pathWithoutBase.startsWith(route + '/')
+          )
+        ) {
           return true;
         }
 
@@ -65,9 +83,26 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    // Match all routes except static files and Next.js internals
-    '/((?!.+\\.[\\w]+$|_next).*)',
+    // Match all routes except static files, Next.js internals, and NextAuth API routes
+    '/((?!.+\\.[\\w]+$|_next|api/auth).*)',
     '/',
-    '/(api|trpc)(.*)',
+    // Match specific API routes (excluding auth)
+    '/api/employees/:path*',
+    '/api/leave/:path*',
+    '/api/leave-management/:path*',
+    '/api/reports/:path*',
+    '/api/cron/:path*',
+    '/api/sync-user/:path*',
+    '/api/promotions/:path*',
+    '/api/roles/:path*',
+    '/api/user-roles/:path*',
+    '/api/admin/:path*',
+    '/api/health/:path*',
+    '/api/holidays/:path*',
+    '/api/attendance/:path*',
+    '/api/test/:path*',
+    '/api/nextauth-debug/:path*',
+    '/api/test-auth/:path*',
+    '/trpc/:path*',
   ],
 };

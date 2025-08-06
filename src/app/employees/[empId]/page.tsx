@@ -234,7 +234,7 @@ export default function EmployeeDetailsPage() {
             </button>
             <div>
               <h1 className='text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white'>
-                {employee.firstName} {employee.lastName} - {employee.empId}
+                {employee.firstName} {employee.lastName} - {employee.employeeNumber}
               </h1>
             </div>
           </div>
@@ -316,7 +316,7 @@ export default function EmployeeDetailsPage() {
                     Employee ID
                   </label>
                   <p className='text-base text-gray-900 dark:text-white font-mono'>
-                    {employee.empId}
+                    {employee.employeeNumber}
                   </p>
                 </div>
 

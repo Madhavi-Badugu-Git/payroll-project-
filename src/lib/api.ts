@@ -4,8 +4,7 @@ export function getApiUrl(path: string): string {
     path = '/' + path;
   }
 
-  // Only use basePath in production
-  const basePath =
-    process.env.NODE_ENV === 'production' ? process.env.NEXT_PUBLIC_BASE_PATH || '/payroll' : '';
+  // Use basePath in all environments now
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/payroll';
   return `${basePath}/api${path}`;
 }

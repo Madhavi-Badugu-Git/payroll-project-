@@ -11,9 +11,9 @@
     "prettier-fix": "prettier --write .",
     "prettier": "prettier --check .",
     "format:staged": "prettier --write --ignore-unknown",
-    "seed": "node --loader ts-node/esm prisma/seed-simple.mts",
+    "seed": "npx tsx prisma/seed.ts",
     "seed:roles": "node --loader ts-node/esm prisma/seed-roles.mts",
-    "seed:all": "npm run seed && npm run seed:roles",
+    "seed:all": "npm run seed",
     "logs:clean": "rm -rf logs/*.log logs/*.log.*",
     "logs:view": "tail -f logs/app-*.log",
     "logs:errors": "tail -f logs/error-*.log",
@@ -58,6 +58,7 @@
     "react-calendar": "^6.0.0",
     "react-dom": "^19.0.0",
     "react-redux": "^9.2.0",
+    "react-router-dom": "^7.7.0",
     "react-toastify": "^11.0.5",
     "recharts": "^2.15.3",
     "resend": "^4.6.0",
@@ -73,6 +74,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/react-router-dom": "^5.3.3",
     "@types/react-toastify": "^4.0.2",
     "@types/winston": "^2.4.4",
     "autoprefixer": "^10.4.21",
@@ -99,6 +101,7 @@
     ]
   },
   "prisma": {
+<<<<<<< HEAD
     "seed": "node --loader ts-node/esm prisma/seed.mts"
   },
   "description": "A modern payroll management application built with Next.js, Prisma, PostgreSQL,\r and Clerk authentication. This system provides comprehensive employee\r management, attendance tracking, leave management, and payroll processing\r capabilities.",
@@ -119,4 +122,8 @@
     "url": "https://github.com/trinits-technologies/payroll/issues"
   },
   "homepage": "https://github.com/trinits-technologies/payroll#readme"
+=======
+    "seed": "npx tsx prisma/seed.ts"
+  }
+>>>>>>> main
 }

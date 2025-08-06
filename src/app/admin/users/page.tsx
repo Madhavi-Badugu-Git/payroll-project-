@@ -1,5 +1,6 @@
 'use client';
 
+import { getApiUrl } from '@/lib/api';
 import {
   BriefcaseIcon,
   CalendarIcon,
@@ -79,7 +80,7 @@ export default function UsersPage() {
         ...(role && { role }),
       });
 
-      const response = await fetch(`/api/admin/users?${params}`);
+      const response = await fetch(getApiUrl(`/admin/users?${params}`));
       if (!response.ok) {
         throw new Error('Failed to fetch users');
       }
@@ -112,7 +113,7 @@ export default function UsersPage() {
 
   const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch(getApiUrl('/admin/users'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

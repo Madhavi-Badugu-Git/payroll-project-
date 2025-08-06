@@ -700,24 +700,60 @@ export default function HolidaysPage() {
         <Dialog open={showImportDialog} onClose={handleImportDialogClose} maxWidth='md' fullWidth>
           <DialogTitle>Import Holidays from Excel</DialogTitle>
           <DialogContent>
-            <Box sx={{ mb: 2 }}>
-              <Typography variant='body2' color='text.secondary' gutterBottom>
-                Upload an Excel file (.xlsx or .xls) with columns: Date, Day, Holiday
+            <Box sx={{ mb: 3 }}>
+              <Typography variant='subtitle1' gutterBottom>
+                Follow these steps to import holidays:
               </Typography>
-              <Typography variant='caption' color='text.secondary'>
-                Date format should be DD-MMM-YYYY (e.g., 01-Jan-{currentYear})
-              </Typography>
+              <ol style={{ paddingLeft: '20px', marginBottom: '16px' }}>
+                <li>Download the sample template using the button below</li>
+                <li>Fill in your holiday data following the same format</li>
+                <li>Upload your completed file using the browse button</li>
+                <li>Review the preview and click Import to proceed</li>
+              </ol>
+              <Alert severity='info' sx={{ mb: 2 }}>
+                <Typography variant='body2' gutterBottom>
+                  Required format:
+                </Typography>
+                <Box component='ul' sx={{ mt: 1, mb: 1, pl: 2 }}>
+                  <li>Date: DD-MMM-YYYY (e.g., 01-Jan-{currentYear})</li>
+                  <li>Day: Day of the week</li>
+                  <li>Holiday: Name of the holiday</li>
+                </Box>
+              </Alert>
+              <Button
+                component='a'
+                href='/sample-holidays-import-2025.xlsx'
+                download
+                variant='outlined'
+                size='medium'
+                color='primary'
+                startIcon={<DownloadIcon />}
+                sx={{ mt: 1 }}
+              >
+                Download Sample Template
+              </Button>
             </Box>
 
-            <input
-              type='file'
-              accept='.xlsx,.xls'
-              onChange={handleFileChange}
-              style={{ marginBottom: '16px' }}
-            />
+            <Box sx={{ mt: 3, mb: 3 }}>
+              <Typography variant='subtitle1' gutterBottom>
+                Upload Your File:
+              </Typography>
+              <input
+                type='file'
+                accept='.xlsx,.xls'
+                onChange={handleFileChange}
+                style={{
+                  marginBottom: '16px',
+                  padding: '8px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  width: '100%',
+                }}
+              />
+            </Box>
 
             {importPreview.length > 0 && (
-              <Box sx={{ mt: 2 }}>
+              <Box sx={{ mt: 3 }}>
                 <Typography variant='h6' gutterBottom>
                   Preview ({importPreview.length} holidays)
                 </Typography>
@@ -751,7 +787,7 @@ export default function HolidaysPage() {
               </Box>
             )}
           </DialogContent>
-          <DialogActions>
+          <DialogActions sx={{ p: 2.5, borderTop: '1px solid #eee' }}>
             <Button onClick={handleImportDialogClose} variant='outlined'>
               Cancel
             </Button>
@@ -760,7 +796,7 @@ export default function HolidaysPage() {
                 onClick={handleImportConfirm}
                 variant='contained'
                 disabled={isImporting}
-                startIcon={isImporting ? <CircularProgress size={20} /> : null}
+                startIcon={isImporting ? <CircularProgress size={20} /> : <UploadIcon />}
               >
                 {isImporting ? 'Importing...' : `Import ${importPreview.length} Holidays`}
               </Button>
@@ -815,7 +851,9 @@ export default function HolidaysPage() {
                     startIcon={<DownloadIcon />}
                     endIcon={<ExpandMoreIcon />}
                     title='Download Holidays'
-                  ></Button>
+                  >
+                    Download
+                  </Button>
                   <Menu
                     anchorEl={downloadMenuAnchorEl}
                     open={Boolean(downloadMenuAnchorEl)}
