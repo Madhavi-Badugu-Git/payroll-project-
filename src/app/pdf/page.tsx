@@ -2,12 +2,7 @@
 
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import DownloadIcon from '@mui/icons-material/Download';
-import {
-  Button,
-  ButtonGroup,
-  Menu,
-  MenuItem,
-} from '@mui/material';
+import { Button, ButtonGroup, Menu, MenuItem } from '@mui/material';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useRef, useState } from 'react';
@@ -85,12 +80,19 @@ export default function PayslipPDFPage() {
     <AppLayout>
       <div style={{ padding: '30px' }}>
         {/* Dropdown-style Download Button */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '30px', marginRight: '10px' }}>
-          <ButtonGroup variant="contained" color="success">
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            paddingTop: '30px',
+            marginRight: '10px',
+          }}
+        >
+          <ButtonGroup variant='contained' color='success'>
             <Button onClick={handleOpenPDF}>
               <DownloadIcon />
             </Button>
-            <Button size="small" onClick={handleMenuClick}>
+            <Button size='small' onClick={handleMenuClick}>
               <ArrowDropDownIcon />
             </Button>
           </ButtonGroup>
@@ -121,7 +123,6 @@ export default function PayslipPDFPage() {
         )}
         <h1
           style={{
-
             fontSize: '30px',
             fontWeight: 'bold',
             marginLeft: 'auto',
@@ -136,7 +137,6 @@ export default function PayslipPDFPage() {
         <div
           ref={contentRef}
           style={{
-
             padding: '20px',
             maxWidth: '1200px',
             marginLeft: 'auto',
@@ -150,7 +150,6 @@ export default function PayslipPDFPage() {
               width: '100%',
               borderCollapse: 'collapse',
               marginBottom: '24px',
-
             }}
           >
             <thead>
@@ -172,13 +171,17 @@ export default function PayslipPDFPage() {
             <tbody>
               <tr>
                 <td style={cellStyle}>Payslip for</td>
-                <td style={cellStyle}><strong>May</strong></td>
+                <td style={cellStyle}>
+                  <strong>May</strong>
+                </td>
                 <td style={cellStyle}>Date</td>
                 <td style={cellStyle}>01/06/2025</td>
               </tr>
               <tr>
                 <td style={cellStyle}>Name</td>
-                <td style={cellStyle}><strong>Vikram Badugu</strong></td>
+                <td style={cellStyle}>
+                  <strong>Vikram Badugu</strong>
+                </td>
                 <td style={cellStyle}>Designation</td>
                 <td style={cellStyle}>Software Associate Intern</td>
               </tr>
@@ -250,7 +253,9 @@ export default function PayslipPDFPage() {
                 <td style={cellStyle}>100</td>
               </tr>
               <tr style={{ fontWeight: 'bold', backgroundColor: '#FFD700' }}>
-                <td colSpan={2} style={cellStyle}>Total Salary</td>
+                <td colSpan={2} style={cellStyle}>
+                  Total Salary
+                </td>
                 <td style={cellStyle}>2000</td>
                 <td style={cellStyle}>2000</td>
               </tr>

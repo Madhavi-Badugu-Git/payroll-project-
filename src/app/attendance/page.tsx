@@ -415,8 +415,8 @@ export default function AttendancePage() {
             Attendance History for{' '}
             {viewedMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
           </h2>
-          <a href="/leaves">
-            <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+          <a href='/leaves'>
+            <button className='px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700'>
               View Leaves Taken
             </button>
           </a>

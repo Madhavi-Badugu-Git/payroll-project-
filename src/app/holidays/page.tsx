@@ -1,7 +1,7 @@
 'use client';
 
 import { useHolidays } from '@/hooks/useHolidays';
-import { hasAdminRoleClient } from '@/lib/clientRoleUtils'; 
+import { hasAdminRoleClient } from '@/lib/clientRoleUtils';
 import { RootState } from '@/store';
 import { Holiday } from '@/types';
 import {

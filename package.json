@@ -101,7 +101,6 @@
     ]
   },
   "prisma": {
-
     "seed": "node --loader ts-node/esm prisma/seed.mts"
   },
   "description": "A modern payroll management application built with Next.js, Prisma, PostgreSQL,\r and Clerk authentication. This system provides comprehensive employee\r management, attendance tracking, leave management, and payroll processing\r capabilities.",
@@ -122,7 +121,4 @@
     "url": "https://github.com/trinits-technologies/payroll/issues"
   },
   "homepage": "https://github.com/trinits-technologies/payroll#readme"
- 
-  }
-
-
+}
