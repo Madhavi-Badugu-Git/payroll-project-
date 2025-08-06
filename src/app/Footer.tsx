@@ -45,6 +45,7 @@ export default function Footer() {
                   Holidays
                 </Link>
               </li>
+              
               {status === 'authenticated' && (
                 <>
                   <li>

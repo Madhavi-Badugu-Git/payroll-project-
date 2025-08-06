@@ -8,8 +8,7 @@ import { useSession } from 'next-auth/react'; // Import useSession
 import Link from 'next/link';
 import { useEffect } from 'react';
 import Loader from '../../../components/Loader';
-import PlaceholderComponent from '../../../components/PlaceholderComponent';
-import AppLayout from '../../AppLayout';
+import AppLayout from '../../AppLayout'; 
 
 // Force dynamic rendering to avoid build issues
 export const dynamic = 'force-dynamic';
@@ -242,7 +241,6 @@ export default function PayslipsPage() {
       </AppLayout>
     );
   }
-
   return (
     <AppLayout>
       <div className='w-full mt-1'>
@@ -256,16 +254,52 @@ export default function PayslipsPage() {
               Back to Documents
             </Link>
           </div>
-
           <h1 className='text-3xl font-bold text-gray-900 dark:text-white mb-2'>Payslips</h1>
           <p className='text-gray-600 dark:text-gray-400'>
             Monthly salary slips and payment records
           </p>
         </div>
+        {/* Payslip Cards Section */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 my-6">
+          {(() => {
+            const today = new Date();
 
-        {userPayslips.length === 0 && !isLoading && (
-          <PlaceholderComponent title='No payslips found for your account.' />
-        )}
+            // Generate dates for past 3 months
+            const months = [];
+            for (let i = 3; i >= 1; i--) {
+              const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+              months.push({
+                month: date.toLocaleString('default', { month: 'long' }),
+                year: date.getFullYear()
+              });
+            }
+
+            // Fixed amounts in correct order
+            const amounts = ['$174,000', '$243,000', '$223,000'];
+
+            return months.map((item, index) => (
+              <div
+                key={index}
+                className="bg-white p-4 rounded-lg shadow-md text-center border hover:shadow-lg transition"
+              >
+                <h2 className="text-xl font-semibold">{item.month} {item.year}</h2>
+                <p className="text-gray-500 text-sm">Most yont</p>
+                <p className="text-2xl font-bold text-block-600">{amounts[index]}</p>
+                <p className="text-gray-500 text-sm">Net Pay</p>
+                {/* <img
+                  src="/icons/payslip.png"
+                  alt="Payslip Icon"
+                  className="w-20 h-20 mx-auto my-3"
+                /> */}
+                <Link href="/pdf">
+                  <button className="bg-blue-600 text-white px-4 py-3  mt-6 rounded hover:bg-blue-700">
+                    View
+                  </button>
+                </Link>
+              </div>
+            ));
+          })()}
+        </div>
 
         {userPayslips.length > 0 && (
           <div className='bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto'>

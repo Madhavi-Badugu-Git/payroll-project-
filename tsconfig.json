@@ -13,16 +13,23 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "baseUrl": ".", // ✅ Required for path mapping to work
+    "paths": {
+      "@/*": ["src/*"], // ✅ Now '@/components/AppLayout' works if file is at src/components/AppLayout.tsx
+      "@/generated/prisma": ["src/generated/prisma"]
+    },
     "plugins": [
       {
         "name": "next"
       }
-    ],
-    "paths": {
-      "@/*": ["./src/*"],
-      "@/generated/prisma": ["./src/generated/prisma"]
-    }
+    ]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "prisma/seed.ts"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "prisma/seed.ts"
+  ],
   "exclude": ["node_modules"]
 }

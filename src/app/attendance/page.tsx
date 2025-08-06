@@ -289,7 +289,7 @@ export default function AttendancePage() {
   if (!user) {
     return (
       <AppLayout>
-        <div className='text-center p-10'>Please log in to view your attendance.</div>
+        <div className='text-center p-10'>Please login to view your attendance.</div>
       </AppLayout>
     );
   }
