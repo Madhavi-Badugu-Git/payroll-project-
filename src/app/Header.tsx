@@ -98,4 +98,4 @@ export default function Header({ onToggleSidebar, isSidebarOpen }: HeaderProps) 
       </div>
     </header>
   );
-}
+} 
