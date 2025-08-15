@@ -68,7 +68,8 @@
     "resend": "^4.6.0",
     "svix": "^1.67.0",
     "winston": "^3.17.0",
-    "winston-daily-rotate-file": "^5.0.0"
+    "winston-daily-rotate-file": "^5.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -81,6 +82,7 @@
     "@types/react-router-dom": "^5.3.3",
     "@types/react-toastify": "^4.0.2",
     "@types/winston": "^2.4.4",
+    "@types/xlsx": "^0.0.35",
     "autoprefixer": "^10.4.21",
     "eslint": "^9",
     "eslint-config-next": "15.3.3",
