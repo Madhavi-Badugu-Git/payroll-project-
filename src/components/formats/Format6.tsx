@@ -18,26 +18,26 @@ const PayslipPage: React.FC = () => {
       {/* Company Info */}
       <div style={{ textAlign: 'center', marginBottom: '20px' }}>
         <Image
-          src="/payroll/imglogo.png"
-          alt="TriNitS Technologies Logo"
+          src='/payroll/imglogo.png'
+          alt='TriNitS Technologies Logo'
           width={180}
           height={80}
           unoptimized
           style={{
-            objectFit: "contain",
-            display: "block"
+            objectFit: 'contain',
+            display: 'block',
           }}
         />
         <div
           style={{
             textAlign: 'center',
             flex: 1,
-            marginTop: '-50px' // move upward
+            marginTop: '-50px', // move upward
           }}
         >
-          <div className="text-right">
-            <h2 className="text-lg font-bold text-red-600">TriNitS Technologies</h2>
-            <p className="text-sm">
+          <div className='text-right'>
+            <h2 className='text-lg font-bold text-red-600'>TriNitS Technologies</h2>
+            <p className='text-sm'>
               Naidupeta 0, Nellore 0,
               <br />
               Andhra Pradesh, 524421
@@ -168,18 +168,22 @@ const PayslipPage: React.FC = () => {
               borderTop: '1px solid black',
             }}
           >
-            <td style={{ borderLeft: 'none', borderRight: 'none', padding: '8px' }}>Total Earnings: INR</td>
-            <td style={{ borderLeft: 'none', borderRight: '1px solid black', padding: '8px' }}>29032</td>
-            <td style={{ borderLeft: 'none', borderRight: 'none', padding: '8px' }}>Total Deductions: INR</td>
+            <td style={{ borderLeft: 'none', borderRight: 'none', padding: '8px' }}>
+              Total Earnings: INR
+            </td>
+            <td style={{ borderLeft: 'none', borderRight: '1px solid black', padding: '8px' }}>
+              29032
+            </td>
+            <td style={{ borderLeft: 'none', borderRight: 'none', padding: '8px' }}>
+              Total Deductions: INR
+            </td>
             <td style={{ borderLeft: 'none', borderRight: 'none', padding: '8px' }}>200</td>
           </tr>
         </tbody>
       </table>
 
       {/* Net Pay */}
-      <p style={{ marginTop: '20px', fontWeight: 'bold' }}>
-        Net Pay : Rs. 28832 (Rupees ... Only)
-      </p>
+      <p style={{ marginTop: '20px', fontWeight: 'bold' }}>Net Pay : Rs. 28832 (Rupees ... Only)</p>
     </div>
   );
 };
@@ -200,11 +204,11 @@ const cellStyle: React.CSSProperties = {
   borderBottom: '1px solid #000', // only horizontal line
   borderLeft: 'none',
   borderRight: 'none',
-  textAlign: 'left'
+  textAlign: 'left',
 };
 
 const cellWithDivider: React.CSSProperties = {
   ...cellStyle,
-  borderRight: '1px solid #000' // adds the one vertical line
+  borderRight: '1px solid #000', // adds the one vertical line
 };
 export default PayslipPage;

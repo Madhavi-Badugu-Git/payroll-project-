@@ -14,25 +14,34 @@ const PayslipPage: React.FC = () => {
         margin: 'auto',
         boxShadow: 'blue',
         border: '1px solid gray ',
-        borderRadius: '6px'
+        borderRadius: '6px',
       }}
     >
       {/* Header */}
-      <div style={{ width: '1000px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div
+        style={{
+          width: '1000px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
         <Image
-          src="/payroll/imglogo.png"
-          alt="TriNitS Technologies Logo"
+          src='/payroll/imglogo.png'
+          alt='TriNitS Technologies Logo'
           width={120}
           height={60}
           unoptimized
           style={{
-            objectFit: "contain",
-            display: "block"
+            objectFit: 'contain',
+            display: 'block',
           }}
         />
         <div style={{ textAlign: 'center', flex: 1 }}>
-          <h2 className="text-4xl m-0 text-red-600">TriNitS Technologies 0</h2>
-          <p style={{ fontSize: '15px', margin: 0 }}>Naidupeta 0, Nellore 0, Andhra Pradesh, 524421.</p>
+          <h2 className='text-4xl m-0 text-red-600'>TriNitS Technologies 0</h2>
+          <p style={{ fontSize: '15px', margin: 0 }}>
+            Naidupeta 0, Nellore 0, Andhra Pradesh, 524421.
+          </p>
           <h3 style={{ fontSize: '20px', margin: '0' }}> Payslip for the month of 2025-08-04</h3>
         </div>
       </div>
@@ -40,7 +49,7 @@ const PayslipPage: React.FC = () => {
       {/* Employee Info Table */}
       <table style={tableStyle}>
         <tbody>
-          <tr >
+          <tr>
             <td style={tdStyle}>Name:</td>
             <td style={borderRightStyle}>TriNitS0</td>
             <td style={tdStyle}>Employee No:</td>
@@ -169,7 +178,8 @@ const PayslipPage: React.FC = () => {
           </tr>
           <tr>
             <td style={bottomCell}>
-              Net Pay for the month ( Total Earnings - Total Deductions ): <strong>28832</strong> (<strong>28832</strong>)
+              Net Pay for the month ( Total Earnings - Total Deductions ): <strong>28832</strong> (
+              <strong>28832</strong>)
             </td>
             <td style={bottomCell}></td>
             <td style={bottomCell}></td>
@@ -178,7 +188,6 @@ const PayslipPage: React.FC = () => {
           </tr>
         </tbody>
       </table>
-
     </div>
   );
 };
@@ -187,29 +196,28 @@ const tableStyle: React.CSSProperties = {
   width: '100%',
   borderCollapse: 'collapse',
   border: '1px solid #000',
-  marginTop: '10px'
+  marginTop: '10px',
 };
 
 const tdStyle: React.CSSProperties = {
   padding: '8px',
-  textAlign: 'left'
+  textAlign: 'left',
 };
 
 const thStyle: React.CSSProperties = {
   padding: '8px',
   borderBottom: '1px solid #000',
-  textAlign: 'left'
+  textAlign: 'left',
 };
-
 
 const borderRightStyle: React.CSSProperties = {
   padding: '8px',
-  borderRight: '1px solid black'
+  borderRight: '1px solid black',
 };
 
 const bottomCell: React.CSSProperties = {
   borderBottom: '1px solid #000',
-  padding: '8px'
+  padding: '8px',
 };
 
 export default PayslipPage;

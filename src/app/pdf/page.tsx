@@ -34,7 +34,8 @@ export default function PayslipPDFPage() {
     selectedFormat !== 'pdf' ? formatComponents[selectedFormat] : null;
 
   const handleChangeFormat = (format: string) => setSelectedFormat(format);
-  const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
+  const handleMenuClick = (event: React.MouseEvent<HTMLElement>) =>
+    setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
 
   const generatePDF = async () => {
@@ -89,14 +90,14 @@ export default function PayslipPDFPage() {
 
   return (
     <AppLayout>
-      <div className="flex justify-between items-center px-5px pt-5px">
+      <div className='flex justify-between items-center px-5px pt-5px'>
         <ButtonGroup
-          variant="contained"
-          color="primary"
+          variant='contained'
+          color='primary'
           sx={{
             mr: 1,
             gap: 1,
-            '& .MuiButton-root': { fontSize: '10px', padding: '8px 16px' }
+            '& .MuiButton-root': { fontSize: '10px', padding: '8px 16px' },
           }}
         >
           <Button onClick={() => handleChangeFormat('format1')}>Format 1</Button>
@@ -107,11 +108,11 @@ export default function PayslipPDFPage() {
           <Button onClick={() => handleChangeFormat('format6')}>Format 6</Button>
           <Button onClick={() => handleChangeFormat('pdf')}>Show PDF</Button>
         </ButtonGroup>
-        <ButtonGroup variant="contained" color="success">
+        <ButtonGroup variant='contained' color='success'>
           <Button onClick={handleOpenPDF}>
             <DownloadIcon />
           </Button>
-          <Button size="small" onClick={handleMenuClick}>
+          <Button size='small' onClick={handleMenuClick}>
             <ArrowDropDownIcon />
           </Button>
         </ButtonGroup>
@@ -120,7 +121,7 @@ export default function PayslipPDFPage() {
         </Menu>
       </div>
       {successMessage && (
-        <div className="text-green-600 bg-green-100 border border-green-300 px-4 py-2 rounded mx-5 mt-2">
+        <div className='text-green-600 bg-green-100 border border-green-300 px-4 py-2 rounded mx-5 mt-2'>
           {successMessage}
         </div>
       )}
@@ -156,13 +157,16 @@ export default function PayslipPDFPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
               <thead>
                 <tr>
-                  <th colSpan={4} style={{
-                    backgroundColor: '#FFD700',
-                    textAlign: 'center',
-                    fontWeight: 'bold',
-                    fontSize: '18px',
-                    padding: '8px',
-                  }}>
+                  <th
+                    colSpan={4}
+                    style={{
+                      backgroundColor: '#FFD700',
+                      textAlign: 'center',
+                      fontWeight: 'bold',
+                      fontSize: '18px',
+                      padding: '8px',
+                    }}
+                  >
                     Trinits Technologies Payslip
                   </th>
                 </tr>
@@ -170,13 +174,17 @@ export default function PayslipPDFPage() {
               <tbody>
                 <tr>
                   <td style={cellStyle}>Payslip for</td>
-                  <td style={cellStyle}><strong>May</strong></td>
+                  <td style={cellStyle}>
+                    <strong>May</strong>
+                  </td>
                   <td style={cellStyle}>Date</td>
                   <td style={cellStyle}>01/06/2025</td>
                 </tr>
                 <tr>
                   <td style={cellStyle}>Name</td>
-                  <td style={cellStyle}><strong>Vikram Badugu</strong></td>
+                  <td style={cellStyle}>
+                    <strong>Vikram Badugu</strong>
+                  </td>
                   <td style={cellStyle}>Designation</td>
                   <td style={cellStyle}>Software Associate Intern</td>
                 </tr>
@@ -243,7 +251,9 @@ export default function PayslipPDFPage() {
                   <td style={cellStyle}>100</td>
                 </tr>
                 <tr style={{ fontWeight: 'bold', backgroundColor: '#FFD700' }}>
-                  <td colSpan={2} style={cellStyle}>Total Salary</td>
+                  <td colSpan={2} style={cellStyle}>
+                    Total Salary
+                  </td>
                   <td style={cellStyle}>2000</td>
                   <td style={cellStyle}>2000</td>
                 </tr>

@@ -10,7 +10,6 @@ import { useEffect } from 'react';
 import Loader from '../../../components/Loader';
 import AppLayout from '../../AppLayout';
 
-
 // Force dynamic rendering to avoid build issues
 export const dynamic = 'force-dynamic';
 
@@ -261,7 +260,7 @@ export default function PayslipsPage() {
           </p>
         </div>
         {/* Payslip Cards Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 my-6">
+        <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 my-6'>
           {(() => {
             const today = new Date();
 
@@ -271,7 +270,7 @@ export default function PayslipsPage() {
               const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
               months.push({
                 month: date.toLocaleString('default', { month: 'long' }),
-                year: date.getFullYear()
+                year: date.getFullYear(),
               });
             }
 
@@ -281,19 +280,21 @@ export default function PayslipsPage() {
             return months.map((item, index) => (
               <div
                 key={index}
-                className="bg-white p-4 rounded-lg shadow-md text-center border hover:shadow-lg transition"
+                className='bg-white p-4 rounded-lg shadow-md text-center border hover:shadow-lg transition'
               >
-                <h2 className="text-xl font-semibold">{item.month} {item.year}</h2>
-                <p className="text-gray-500 text-sm">Most yont</p>
-                <p className="text-2xl font-bold text-block-600">{amounts[index]}</p>
-                <p className="text-gray-500 text-sm">Net Pay</p>
+                <h2 className='text-xl font-semibold'>
+                  {item.month} {item.year}
+                </h2>
+                <p className='text-gray-500 text-sm'>Most yont</p>
+                <p className='text-2xl font-bold text-block-600'>{amounts[index]}</p>
+                <p className='text-gray-500 text-sm'>Net Pay</p>
                 {/* <img
                   src="/icons/payslip.png"
                   alt="Payslip Icon"
                   className="w-20 h-20 mx-auto my-3"
                 /> */}
-                <Link href="/pdf">
-                  <button className="bg-blue-600 text-white px-4 py-3  mt-6 rounded hover:bg-blue-700">
+                <Link href='/pdf'>
+                  <button className='bg-blue-600 text-white px-4 py-3  mt-6 rounded hover:bg-blue-700'>
                     View
                   </button>
                 </Link>
