@@ -185,7 +185,7 @@ export const useLeaves = (): UseLeavesReturn => {
       const params = employeeNumber ? `?employeeNumber=${employeeNumber}` : '';
       console.log('Making request to:', `${url}${params}`);
 
-      const response = await axios.get<Omit<LeaveEntry, 'noOfDays' | 'appliedDate'>[]>(
+      const response = await axios.get<Array<Omit<LeaveEntry, 'noOfDays' | 'appliedDate'>>>(
         `${url}${params}`
       );
 
