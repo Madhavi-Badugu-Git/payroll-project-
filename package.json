@@ -13,6 +13,7 @@
     "prettier-fix": "prettier --write .",
     "prettier": "prettier --check .",
     "format:staged": "prettier --write --ignore-unknown",
+    "format": "npm run prettier-fix",
     "seed": "npx tsx prisma/seed.ts",
     "seed:roles": "node --loader ts-node/esm prisma/seed-roles.mts",
     "seed:all": "npm run seed",
