@@ -1,9 +1,11 @@
 'use client';
 import Image from 'next/image';
+
 export default function Payslip() {
+
   return (
-    <div className='bg-blue-30 min-h-screen p-6'>
-      <div className='bg-white p-6 w-[900px] shadow-lg border border-gray-300'>
+    <div className='bg-blue-30 min-h-screenscroll w-[900px] p-6'>
+      <div className='bg-white p-6 w-[1000px]shadow-lg border border-gray-300'>
         <div className='flex justify-between items-start border-b border-gray-300 pb-6'>
           {/* Left Logo & Name */}
           <div className='flex items-center'>
@@ -24,7 +26,7 @@ export default function Payslip() {
           <div style={{ textAlign: 'center', flex: 1 }}>
             <h2 className='text-lg font-bold text-red-600'>TriNitS Technologies 0</h2>
             <p className='text-sm text-gray-700'>
-              Naidupeta 0, Nellore 0, 524421, Andhra pradesh.
+              Naidupeta 0,Nellore 0, 524421, Andhra pradesh.
               <br />
               <span className='text-red-500 text-sm'>Pay Slip for the month of 2025-08-04</span>
             </p>
@@ -43,7 +45,9 @@ export default function Payslip() {
           </div>
           <div>
             <p>
-              <span className='font-bold text-pink-700'>Name</span> : TriNitS0
+              <span className='font-bold text-pink-700'>Name  : </span> TriNitS0
+
+
             </p>
             <p>
               <span className='font-bold text-pink-700'>Designation</span> : Software engineer
